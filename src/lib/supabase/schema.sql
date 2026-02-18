@@ -101,4 +101,115 @@ CREATE POLICY "Users can insert own workout plans" ON workout_plans
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can delete own workout plans" ON workout_plans
+
   FOR DELETE USING (auth.uid() = user_id);
+
+-- ═══════════════════════════════════════
+-- ZencyFlow Feature Tables
+-- ═══════════════════════════════════════
+
+-- Sleep Logs
+CREATE TABLE IF NOT EXISTS sleep_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  date DATE NOT NULL,
+  hours NUMERIC NOT NULL,
+  quality INTEGER, -- 1-10 scale optionally
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Goals
+CREATE TABLE IF NOT EXISTS goals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  category TEXT, -- e.g., 'Fitness', 'Mindfulness', 'Financial'
+  target_date DATE,
+  completed BOOLEAN DEFAULT FALSE,
+  progress INTEGER DEFAULT 0, -- 0-100
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Habits
+CREATE TABLE IF NOT EXISTS habits (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  frequency TEXT, -- 'daily', 'weekly', etc.
+  target_count INTEGER DEFAULT 1, -- Times per day/week
+  color TEXT, -- For UI customization
+  icon TEXT, -- For UI customization
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  archived BOOLEAN DEFAULT FALSE
+);
+
+-- Habit Logs (Tracking completions)
+CREATE TABLE IF NOT EXISTS habit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  habit_id UUID REFERENCES habits(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL, -- Denormalized for easier querying
+  date DATE NOT NULL,
+  count INTEGER DEFAULT 1,
+  completed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Journal Entries
+CREATE TABLE IF NOT EXISTS journal_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  title TEXT,
+  content TEXT NOT NULL,
+  mood TEXT, -- e.g., 'Happy', 'Stressed', 'Neutral'
+  tags TEXT[],
+  date DATE DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Calendar Events
+CREATE TABLE IF NOT EXISTS calendar_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  start_time TIMESTAMPTZ NOT NULL,
+  end_time TIMESTAMPTZ NOT NULL,
+  all_day BOOLEAN DEFAULT FALSE,
+  color TEXT,
+  type TEXT, -- 'workout', 'meal', 'generic'
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ═══════════════════════════════════════
+-- RLS Policies for New Tables
+-- ═══════════════════════════════════════
+
+-- Enable RLS
+ALTER TABLE sleep_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE habits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE habit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE journal_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE calendar_events ENABLE ROW LEVEL SECURITY;
+
+-- Sleep Logs Policies
+CREATE POLICY "Users can crud own sleep logs" ON sleep_logs USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- Goals Policies
+CREATE POLICY "Users can crud own goals" ON goals USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- Habits Policies
+CREATE POLICY "Users can crud own habits" ON habits USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- Habit Logs Policies
+CREATE POLICY "Users can crud own habit logs" ON habit_logs USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- Journal Policies
+CREATE POLICY "Users can crud own journal entries" ON journal_entries USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- Calendar Policies
+CREATE POLICY "Users can crud own calendar events" ON calendar_events USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
