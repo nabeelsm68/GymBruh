@@ -100,18 +100,41 @@ export default function PlannerPage() {
                 body: JSON.stringify({ profile, planType: type }),
             });
 
-            if (!res.ok) throw new Error('Generation failed');
-
             const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Generation failed');
+            }
+
             if (type === 'diet') setDietPlan(data);
             else setWorkoutPlan(data);
             setExpandedDay(0);
-        } catch {
-            setError('Failed to generate plan. Please try again.');
+        } catch (err: any) {
+            console.error(err);
+            setError(err.message || 'Failed to generate plan. Please try again.');
         } finally {
             setLoading(false);
         }
     };
+
+    const loadingMessages = [
+        "Consulting the fitness gods...",
+        "Crunching your macros...",
+        "Designating rest days...",
+        "Synthesizing protein...",
+        "Calibrating weights...",
+        "Analyzing your vibe...",
+    ];
+    const [loadingMsg, setLoadingMsg] = useState(loadingMessages[0]);
+
+    useEffect(() => {
+        if (loading) {
+            const interval = setInterval(() => {
+                setLoadingMsg(loadingMessages[Math.floor(Math.random() * loadingMessages.length)]);
+            }, 2000);
+            return () => clearInterval(interval);
+        }
+    }, [loading]);
 
     return (
         <div className="planner-page">
@@ -145,7 +168,7 @@ export default function PlannerPage() {
                 {loading ? (
                     <>
                         <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⚙️</span>
-                        Generating your {activeTab} plan...
+                        {loadingMsg}
                     </>
                 ) : (
                     `✨ Generate ${activeTab === 'diet' ? 'Diet' : 'Workout'} Plan`
