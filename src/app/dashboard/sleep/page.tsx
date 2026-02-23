@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
+import Icon from '@/components/ui/Icons';
+import './sleep.css';
 
 /* ── Helpers ── */
 function getDateKey(d: Date) {
@@ -22,12 +24,25 @@ function hoursToHM(h: number) {
 }
 
 const STORAGE_PREFIX = 'gymbruh-sleep-';
-const GOAL_HOURS = 8;
+const QUALITY_PREFIX = 'gymbruh-sleepq-';
+
+/* ── Sleep Tips ── */
+const sleepTips = [
+  { tip: "Keep your bedroom between 60-67°F (15-19°C) for optimal sleep", icon: "moon" as const },
+  { tip: "The blue light from screens suppresses melatonin for up to 3 hours", icon: "lightning" as const },
+  { tip: "A consistent sleep schedule is more important than total hours", icon: "target" as const },
+  { tip: "Caffeine has a half-life of 5-6 hours — stop by early afternoon", icon: "fire" as const },
+  { tip: "Regular exercise can improve sleep quality by up to 65%", icon: "muscle" as const },
+  { tip: "Power naps of 10-20 minutes can boost alertness without grogginess", icon: "brain" as const },
+  { tip: "Magnesium-rich foods like almonds and bananas promote better sleep", icon: "leaf" as const },
+  { tip: "Deep breathing exercises can reduce time to fall asleep by 50%", icon: "sparkles" as const },
+];
 
 /* ── Types ── */
 interface SleepEntry {
   date: string;
   hours: number;
+  quality?: number; // 1-5 stars
 }
 
 export default function SleepPage() {
@@ -35,8 +50,13 @@ export default function SleepPage() {
   const [logDate, setLogDate] = useState(getDateKey(new Date()));
   const [logHours, setLogHours] = useState('7');
   const [logMinutes, setLogMinutes] = useState('30');
+  const [logQuality, setLogQuality] = useState(4);
+  const [goalHours, setGoalHours] = useState(8);
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [tipIdx, setTipIdx] = useState(0);
+  const [tipFade, setTipFade] = useState(true);
 
-  /* ── Load all entries from localStorage ── */
+  /* ── Load entries + goal ── */
   useEffect(() => {
     const loaded: SleepEntry[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -44,11 +64,27 @@ export default function SleepPage() {
       if (key && key.startsWith(STORAGE_PREFIX)) {
         const date = key.replace(STORAGE_PREFIX, '');
         const val = parseFloat(localStorage.getItem(key) || '0');
-        if (val > 0) loaded.push({ date, hours: val });
+        const quality = parseInt(localStorage.getItem(QUALITY_PREFIX + date) || '0', 10) || undefined;
+        if (val > 0) loaded.push({ date, hours: val, quality });
       }
     }
     loaded.sort((a, b) => a.date.localeCompare(b.date));
     setEntries(loaded);
+
+    const savedGoal = localStorage.getItem('gymbruh-sleep-goal');
+    if (savedGoal) setGoalHours(parseFloat(savedGoal));
+  }, []);
+
+  /* ── Rotating tips ── */
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTipFade(false);
+      setTimeout(() => {
+        setTipIdx(i => (i + 1) % sleepTips.length);
+        setTipFade(true);
+      }, 300);
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   /* ── Save entry ── */
@@ -58,12 +94,12 @@ export default function SleepPage() {
     const total = h + m / 60;
     if (total <= 0 || total > 24) return;
 
-    const key = STORAGE_PREFIX + logDate;
-    localStorage.setItem(key, String(total));
+    localStorage.setItem(STORAGE_PREFIX + logDate, String(total));
+    localStorage.setItem(QUALITY_PREFIX + logDate, String(logQuality));
 
     setEntries((prev) => {
       const filtered = prev.filter((e) => e.date !== logDate);
-      const updated = [...filtered, { date: logDate, hours: total }];
+      const updated = [...filtered, { date: logDate, hours: total, quality: logQuality }];
       updated.sort((a, b) => a.date.localeCompare(b.date));
       return updated;
     });
@@ -72,7 +108,14 @@ export default function SleepPage() {
   /* ── Delete entry ── */
   const deleteEntry = (date: string) => {
     localStorage.removeItem(STORAGE_PREFIX + date);
+    localStorage.removeItem(QUALITY_PREFIX + date);
     setEntries((prev) => prev.filter((e) => e.date !== date));
+  };
+
+  const saveGoal = (val: number) => {
+    setGoalHours(val);
+    localStorage.setItem('gymbruh-sleep-goal', String(val));
+    setEditingGoal(false);
   };
 
   /* ── Computed Data ── */
@@ -85,7 +128,7 @@ export default function SleepPage() {
     }
     return dates.map((dt) => {
       const entry = entries.find((e) => e.date === dt);
-      return { date: dt, hours: entry?.hours || 0 };
+      return { date: dt, hours: entry?.hours || 0, quality: entry?.quality };
     });
   }, [entries]);
 
@@ -98,7 +141,7 @@ export default function SleepPage() {
     }
     return dates.map((dt) => {
       const entry = entries.find((e) => e.date === dt);
-      return { date: dt, hours: entry?.hours || 0 };
+      return { date: dt, hours: entry?.hours || 0, quality: entry?.quality };
     });
   }, [entries]);
 
@@ -108,14 +151,51 @@ export default function SleepPage() {
     return logged.reduce((s, d) => s + d.hours, 0) / logged.length;
   }, [last7]);
 
-  const isGood = avg7 >= GOAL_HOURS;
+  const isGood = avg7 >= goalHours;
+
+  /* ── Streak ── */
+  const streak = useMemo(() => {
+    let count = 0;
+    const today = new Date();
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const key = getDateKey(d);
+      const entry = entries.find(e => e.date === key);
+
+      if (entry && entry.hours >= goalHours) {
+        count++;
+      } else if (i === 0 && !entry) {
+        // Skip today if empty
+        continue;
+      } else {
+        // Missing entry or below goal breaks the streak
+        break;
+      }
+    }
+    return count;
+  }, [entries, goalHours]);
+
+  /* ── Sleep Debt ── */
+  const sleepDebt = useMemo(() => {
+    const logged = last7.filter(d => d.hours > 0);
+    if (logged.length === 0) return 0;
+    const totalDebt = logged.reduce((s, d) => s + Math.max(0, goalHours - d.hours), 0);
+    return totalDebt;
+  }, [last7, goalHours]);
+
+  /* ── Average Quality ── */
+  const avgQuality = useMemo(() => {
+    const withQuality = last7.filter(d => d.quality && d.quality > 0);
+    if (withQuality.length === 0) return 0;
+    return withQuality.reduce((s, d) => s + (d.quality || 0), 0) / withQuality.length;
+  }, [last7]);
 
   /* ── Insights ── */
   const insights = useMemo(() => {
     const logged = entries.filter((e) => e.hours > 0);
     if (logged.length < 2) return null;
 
-    // Consistency = std deviation of last 7 logged days
     const recent = logged.slice(-7);
     const recentAvg = recent.reduce((s, e) => s + e.hours, 0) / recent.length;
     const variance = recent.reduce((s, e) => s + Math.pow(e.hours - recentAvg, 2), 0) / recent.length;
@@ -123,7 +203,6 @@ export default function SleepPage() {
     const consistency = stdDev < 0.5 ? 'Very Consistent' : stdDev < 1.0 ? 'Fairly Consistent' : stdDev < 1.5 ? 'Somewhat Irregular' : 'Irregular';
     const consistencyColor = stdDev < 0.5 ? '#4ade80' : stdDev < 1.0 ? '#60a5fa' : stdDev < 1.5 ? '#facc15' : '#f87171';
 
-    // Trend: this week avg vs last week
     const thisWeek = last7.filter((d) => d.hours > 0);
     const prevWeekDates: string[] = [];
     for (let i = 13; i >= 7; i--) {
@@ -134,16 +213,15 @@ export default function SleepPage() {
     const prevWeek = prevWeekDates.map((dt) => entries.find((e) => e.date === dt)?.hours || 0).filter((h) => h > 0);
 
     let trend = 'Stable';
-    let trendIcon = '➡️';
+    let trendIcon: 'trendUp' | 'trendDown' | 'neutral' = 'neutral';
     if (thisWeek.length > 0 && prevWeek.length > 0) {
       const thisAvg = thisWeek.reduce((s, d) => s + d.hours, 0) / thisWeek.length;
       const prevAvg = prevWeek.reduce((s, h) => s + h, 0) / prevWeek.length;
       const diff = thisAvg - prevAvg;
-      if (diff > 0.3) { trend = 'Improving'; trendIcon = '📈'; }
-      else if (diff < -0.3) { trend = 'Declining'; trendIcon = '📉'; }
+      if (diff > 0.3) { trend = 'Improving'; trendIcon = 'trendUp'; }
+      else if (diff < -0.3) { trend = 'Declining'; trendIcon = 'trendDown'; }
     }
 
-    // Best & Worst day of week
     const dayTotals: Record<string, { sum: number; count: number }> = {};
     for (const e of logged) {
       const day = getDayName(new Date(e.date + 'T00:00:00'));
@@ -159,7 +237,7 @@ export default function SleepPage() {
     return { consistency, consistencyColor, trend, trendIcon, bestDay, worstDay, stdDev };
   }, [entries, last7]);
 
-  /* ── Smooth Area Chart ── */
+  /* ── Chart ── */
   const chartW = 700;
   const chartH = 240;
   const chartPadL = 40;
@@ -168,14 +246,16 @@ export default function SleepPage() {
   const chartPadB = 36;
   const plotW = chartW - chartPadL - chartPadR;
   const plotH = chartH - chartPadT - chartPadB;
-  const maxHours = 12;
-  const goalY = chartPadT + plotH * (1 - GOAL_HOURS / maxHours);
+  const maxHours = useMemo(() => {
+    const vals = entries.map(e => e.hours);
+    return Math.max(12, goalHours + 2, ...vals);
+  }, [entries, goalHours]);
+  const goalY = chartPadT + plotH * (1 - goalHours / maxHours);
 
   const [chartAnimated, setChartAnimated] = useState(false);
   const pathRef = useRef<SVGPathElement>(null);
   const areaRef = useRef<SVGPathElement>(null);
 
-  // Build smooth cubic bezier path
   const chartPoints = useMemo(() => {
     return last14.map((d, i) => {
       const x = chartPadL + (i / (last14.length - 1)) * plotW;
@@ -194,11 +274,16 @@ export default function SleepPage() {
       const p1 = pts[i];
       const p2 = pts[i + 1];
       const p3 = pts[Math.min(pts.length - 1, i + 2)];
-      const tension = 0.35;
+      const tension = 0.3;
       const cp1x = p1.x + (p2.x - p0.x) * tension;
-      const cp1y = p1.y + (p2.y - p0.y) * tension;
+      let cp1y = p1.y + (p2.y - p0.y) * tension;
       const cp2x = p2.x - (p3.x - p1.x) * tension;
-      const cp2y = p2.y - (p3.y - p1.y) * tension;
+      let cp2y = p2.y - (p3.y - p1.y) * tension;
+
+      // Clamp Y control points to prevent exceeding bounds
+      cp1y = Math.max(chartPadT, Math.min(chartPadT + plotH, cp1y));
+      cp2y = Math.max(chartPadT, Math.min(chartPadT + plotH, cp2y));
+
       d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
     }
     return d;
@@ -211,19 +296,64 @@ export default function SleepPage() {
     return `${smoothPath} L ${pts[pts.length - 1].x} ${bottomY} L ${pts[0].x} ${bottomY} Z`;
   }, [smoothPath, chartPoints, plotH]);
 
-  // Animate on mount
   useEffect(() => {
     const timer = setTimeout(() => setChartAnimated(true), 100);
     return () => clearTimeout(timer);
   }, []);
+
+  const getQualityLabel = (q: number) => {
+    if (q >= 5) return 'Excellent';
+    if (q >= 4) return 'Good';
+    if (q >= 3) return 'Fair';
+    if (q >= 2) return 'Poor';
+    return 'Very Poor';
+  };
+
+  const getQualityColor = (q: number) => {
+    if (q >= 4) return '#4ade80';
+    if (q >= 3) return '#facc15';
+    return '#f87171';
+  };
 
   return (
     <div className="sleep-page">
       {/* ═══ Header ═══ */}
       <div className="sleep-header">
         <div>
-          <h1 className="sleep-title">😴 Sleep Tracker</h1>
+          <h1 className="sleep-title"><Icon name="sleep" size={24} /> <span className="serif">Sleep Tracker</span></h1>
           <p className="sleep-subtitle">Monitor your rest and build better habits</p>
+        </div>
+      </div>
+
+      {/* ═══ Quick Stats Row ═══ */}
+      <div className="quick-stats">
+        <div className="quick-stat glass-card-static">
+          <div className="qs-icon qs-icon-streak"><Icon name="fire" size={18} /></div>
+          <div className="qs-content">
+            <span className="qs-value">{streak}</span>
+            <span className="qs-label">Day Streak</span>
+          </div>
+        </div>
+        <div className="quick-stat glass-card-static">
+          <div className="qs-icon qs-icon-debt"><Icon name="moon" size={18} /></div>
+          <div className="qs-content">
+            <span className="qs-value">{sleepDebt > 0 ? hoursToHM(sleepDebt) : '0h'}</span>
+            <span className="qs-label">Sleep Debt</span>
+          </div>
+        </div>
+        <div className="quick-stat glass-card-static">
+          <div className="qs-icon qs-icon-quality"><Icon name="star" size={18} /></div>
+          <div className="qs-content">
+            <span className="qs-value">{avgQuality > 0 ? avgQuality.toFixed(1) : '--'}</span>
+            <span className="qs-label">Avg Quality</span>
+          </div>
+        </div>
+        <div className="quick-stat glass-card-static">
+          <div className="qs-icon qs-icon-logged"><Icon name="checkCircle" size={18} /></div>
+          <div className="qs-content">
+            <span className="qs-value">{entries.length}</span>
+            <span className="qs-label">Total Logs</span>
+          </div>
         </div>
       </div>
 
@@ -231,7 +361,27 @@ export default function SleepPage() {
       <div className="top-row">
         {/* Average Sleep Card */}
         <section className={`glass-card-static widget-sleep avg-card ${isGood ? 'avg-good' : 'avg-bad'}`}>
-          <h3 className="section-title">Weekly Average</h3>
+          <div className="avg-header">
+            <h3 className="section-title">Weekly Average</h3>
+            {editingGoal ? (
+              <div className="goal-editor">
+                <input
+                  type="number"
+                  className="glass-input goal-input"
+                  min="4" max="12" step="0.5"
+                  value={goalHours}
+                  onChange={e => setGoalHours(parseFloat(e.target.value) || 8)}
+                />
+                <button className="glass-btn glass-btn-sm glass-btn-primary" onClick={() => saveGoal(goalHours)}>
+                  Save
+                </button>
+              </div>
+            ) : (
+              <button className="goal-btn" onClick={() => setEditingGoal(true)}>
+                <Icon name="target" size={12} /> Goal: {goalHours}h
+              </button>
+            )}
+          </div>
           <div className="avg-ring-wrap">
             <svg viewBox="0 0 120 120" className="avg-ring">
               <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
@@ -247,17 +397,17 @@ export default function SleepPage() {
             </svg>
             <div className="avg-ring-text">
               <span className="avg-value">{avg7 > 0 ? hoursToHM(avg7) : '--'}</span>
-              <span className="avg-goal">/ {GOAL_HOURS}h</span>
+              <span className="avg-goal">/ {goalHours}h</span>
             </div>
           </div>
           <div className={`avg-badge ${isGood ? 'badge-good' : 'badge-bad'}`}>
-            {avg7 === 0 ? '📊 No data yet' : isGood ? '✅ Good Rest' : '⚠️ Sleep Debt'}
+            {avg7 === 0 ? <><Icon name="chart" size={14} /> No data yet</> : isGood ? <><Icon name="checkCircle" size={14} /> Good Rest</> : <><Icon name="warning" size={14} /> Sleep Debt</>}
           </div>
         </section>
 
         {/* Log Form */}
         <section className="glass-card-static widget-sleep log-card">
-          <h3 className="section-title">📝 Log Sleep</h3>
+          <h3 className="section-title"><Icon name="edit" size={16} /> Log Sleep</h3>
           <div className="log-form">
             <div className="form-group">
               <label className="form-label">Date</label>
@@ -292,11 +442,45 @@ export default function SleepPage() {
                 />
               </div>
             </div>
+
+            {/* Sleep Quality Stars */}
+            <div className="form-group">
+              <label className="form-label">Sleep Quality</label>
+              <div className="quality-stars">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    className={`star-btn ${star <= logQuality ? 'star-active' : ''}`}
+                    onClick={() => setLogQuality(star)}
+                  >
+                    <Icon name="star" size={22} />
+                  </button>
+                ))}
+                <span className="quality-text" style={{ color: getQualityColor(logQuality) }}>
+                  {getQualityLabel(logQuality)}
+                </span>
+              </div>
+            </div>
+
             <button className="glass-btn glass-btn-primary log-btn" onClick={saveEntry}>
-              💤 Log Sleep
+              <Icon name="sleep" size={16} /> Log Sleep
             </button>
           </div>
         </section>
+      </div>
+
+      {/* ═══ Sleep Tip ═══ */}
+      <div className="glass-card-static tip-card">
+        <div className="tip-badge">SLEEP TIP</div>
+        <div className={`tip-content ${tipFade ? 'tip-in' : 'tip-out'}`}>
+          <Icon name={sleepTips[tipIdx].icon} size={20} />
+          <p>{sleepTips[tipIdx].tip}</p>
+        </div>
+        <div className="tip-dots">
+          {sleepTips.map((_, i) => (
+            <span key={i} className={`tip-dot ${i === tipIdx ? 'tip-dot-active' : ''}`} />
+          ))}
+        </div>
       </div>
 
       {/* ═══ Sleep Trends Chart ═══ */}
@@ -304,11 +488,11 @@ export default function SleepPage() {
         <div className="chart-header">
           <div>
             <h3 className="chart-title">Sleep Trends</h3>
-            <p className="chart-sub">Duration over time</p>
+            <p className="chart-sub">Duration over the last 14 days</p>
           </div>
           <div className="chart-legend">
             <span className="legend-item"><span className="legend-dot legend-dot-duration" /> Duration</span>
-            <span className="legend-item"><span className="legend-dot legend-dot-goal" /> 8h Goal</span>
+            <span className="legend-item"><span className="legend-dot legend-dot-goal" /> {goalHours}h Goal</span>
           </div>
         </div>
         <div className="chart-scroll">
@@ -339,7 +523,7 @@ export default function SleepPage() {
               );
             })}
 
-            {/* 8h Goal line */}
+            {/* Goal line */}
             <line x1={chartPadL} y1={goalY} x2={chartW - chartPadR} y2={goalY} className="goal-line" />
 
             {/* Area fill */}
@@ -377,7 +561,7 @@ export default function SleepPage() {
               )
             ))}
 
-            {/* X-axis date labels — show a few for readability */}
+            {/* X-axis labels */}
             {last14.map((d, i) => {
               if (i % 3 !== 0 && i !== last14.length - 1) return null;
               const x = chartPadL + (i / (last14.length - 1)) * plotW;
@@ -391,25 +575,68 @@ export default function SleepPage() {
         </div>
       </section>
 
+      {/* ═══ Weekly Bar Chart ═══ */}
+      <section className="glass-card-static widget-sleep bar-chart-card">
+        <h3 className="chart-title"><Icon name="chart" size={16} /> This Week at a Glance</h3>
+        <div className="bar-chart">
+          {last7.map((d) => {
+            const pct = Math.min((d.hours / maxHours) * 100, 100);
+            const goalPct = (goalHours / maxHours) * 100;
+            const dateObj = new Date(d.date + 'T00:00:00');
+            const dayLabel = getDayName(dateObj);
+            const meetsGoal = d.hours >= goalHours;
+            return (
+              <div key={d.date} className="bar-col">
+                <span className="bar-value">{d.hours > 0 ? hoursToHM(d.hours) : ''}</span>
+                <div className="bar-track">
+                  <div className="bar-goal-marker" style={{ bottom: `${goalPct}%` }} />
+                  <div
+                    className={`bar-fill ${meetsGoal ? 'bar-good' : d.hours > 0 ? 'bar-low' : 'bar-empty'}`}
+                    style={{ height: `${pct}%` }}
+                  />
+                </div>
+                <span className="bar-day">{dayLabel}</span>
+                {d.quality && (
+                  <div className="bar-quality">
+                    {Array.from({ length: d.quality }, (_, i) => (
+                      <span key={i} className="bar-star"><Icon name="star" size={8} /></span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       {/* ═══ Bottom Row: History + Insights ═══ */}
       <div className="bottom-row">
         {/* Recent History */}
         <section className="glass-card-static widget-sleep history-card">
-          <h3 className="section-title">📋 This Week</h3>
+          <h3 className="section-title"><Icon name="clipboard" size={16} /> This Week</h3>
           <div className="history-list">
             {last7.slice().reverse().map((d) => {
               const dateObj = new Date(d.date + 'T00:00:00');
               return (
                 <div key={d.date} className="history-item">
                   <div className="history-left">
-                    <span className={`history-dot ${d.hours >= GOAL_HOURS ? 'dot-green' : d.hours > 0 ? 'dot-red' : 'dot-empty'}`} />
+                    <span className={`history-dot ${d.hours >= goalHours ? 'dot-green' : d.hours > 0 ? 'dot-red' : 'dot-empty'}`} />
                     <div className="history-date-block">
                       <span className="history-date">{formatDateShort(dateObj)}</span>
-                      {d.hours > 0 && (
-                        <span className={`history-label ${d.hours >= GOAL_HOURS ? 'label-good' : 'label-bad'}`}>
-                          {d.hours >= GOAL_HOURS ? 'Good Rest' : 'Sleep Debt'}
-                        </span>
-                      )}
+                      <div className="history-sub-row">
+                        {d.hours > 0 && (
+                          <span className={`history-label ${d.hours >= goalHours ? 'label-good' : 'label-bad'}`}>
+                            {d.hours >= goalHours ? 'Good Rest' : 'Sleep Debt'}
+                          </span>
+                        )}
+                        {d.quality && d.quality > 0 && (
+                          <span className="history-quality-stars">
+                            {Array.from({ length: d.quality }, (_, i) => (
+                              <span key={i} style={{ color: getQualityColor(d.quality!) }}><Icon name="star" size={8} /></span>
+                            ))}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="history-right">
@@ -417,7 +644,7 @@ export default function SleepPage() {
                       {d.hours > 0 ? hoursToHM(d.hours) : 'No data'}
                     </span>
                     {d.hours > 0 && (
-                      <button className="history-del" onClick={() => deleteEntry(d.date)}>×</button>
+                      <button className="history-del" onClick={() => deleteEntry(d.date)}><Icon name="trash" size={14} /></button>
                     )}
                   </div>
                 </div>
@@ -428,18 +655,18 @@ export default function SleepPage() {
 
         {/* Insights */}
         <section className="glass-card-static widget-sleep insights-card">
-          <h3 className="section-title">💡 Sleep Insights</h3>
+          <h3 className="section-title"><Icon name="lightbulb" size={16} /> Sleep Insights</h3>
           {insights ? (
             <div className="insights-grid">
               <div className="insight-item">
-                <span className="insight-icon">🎯</span>
+                <span className="insight-icon"><Icon name="target" size={20} /></span>
                 <div className="insight-body">
                   <span className="insight-label">Consistency</span>
                   <span className="insight-value" style={{ color: insights.consistencyColor }}>{insights.consistency}</span>
                 </div>
               </div>
               <div className="insight-item">
-                <span className="insight-icon">{insights.trendIcon}</span>
+                <span className="insight-icon"><Icon name={insights.trendIcon} size={20} /></span>
                 <div className="insight-body">
                   <span className="insight-label">Weekly Trend</span>
                   <span className="insight-value">{insights.trend}</span>
@@ -447,7 +674,7 @@ export default function SleepPage() {
               </div>
               {insights.bestDay && (
                 <div className="insight-item">
-                  <span className="insight-icon">🌟</span>
+                  <span className="insight-icon"><Icon name="star" size={20} /></span>
                   <div className="insight-body">
                     <span className="insight-label">Best Sleep Day</span>
                     <span className="insight-value" style={{ color: '#4ade80' }}>{insights.bestDay.day} ({hoursToHM(insights.bestDay.avg)})</span>
@@ -456,423 +683,33 @@ export default function SleepPage() {
               )}
               {insights.worstDay && (
                 <div className="insight-item">
-                  <span className="insight-icon">😵</span>
+                  <span className="insight-icon"><Icon name="alertCircle" size={20} /></span>
                   <div className="insight-body">
                     <span className="insight-label">Least Sleep Day</span>
                     <span className="insight-value" style={{ color: '#f87171' }}>{insights.worstDay.day} ({hoursToHM(insights.worstDay.avg)})</span>
                   </div>
                 </div>
               )}
+              {sleepDebt > 0 && (
+                <div className="insight-item insight-debt">
+                  <span className="insight-icon"><Icon name="alertCircle" size={20} /></span>
+                  <div className="insight-body">
+                    <span className="insight-label">Weekly Sleep Debt</span>
+                    <span className="insight-value" style={{ color: '#f87171' }}>{hoursToHM(sleepDebt)} behind goal</span>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="insights-empty">
-              <span style={{ fontSize: '2rem' }}>📊</span>
+              <span style={{ fontSize: '2rem' }}><Icon name="chart" size={32} /></span>
               <p>Log at least 2 days of sleep to unlock insights</p>
             </div>
           )}
         </section>
       </div>
 
-      <style jsx>{`
-        .sleep-page {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-          animation: fadeInUp 0.5s ease-out;
-        }
 
-        /* ── Header ── */
-        .sleep-header {
-          margin-bottom: 4px;
-        }
-        .sleep-title {
-          font-size: 1.6rem;
-          font-weight: 800;
-        }
-        .sleep-subtitle {
-          color: var(--text-muted);
-          font-size: 0.9rem;
-          margin-top: 4px;
-        }
-
-        .section-title {
-          font-size: 0.85rem;
-          font-weight: 700;
-          color: #d4d4d8;
-          letter-spacing: 0.02em;
-          margin-bottom: 18px;
-        }
-
-        .widget-sleep {
-          padding: 24px;
-        }
-
-        /* ── Top Row ── */
-        .top-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-        }
-
-        /* ── Average Card ── */
-        .avg-ring-wrap {
-          position: relative;
-          width: 140px;
-          height: 140px;
-          margin: 0 auto 18px;
-        }
-        .avg-ring {
-          width: 100%;
-          height: 100%;
-        }
-        .avg-ring-text {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          text-align: center;
-          display: flex;
-          flex-direction: column;
-        }
-        .avg-value {
-          font-size: 1.6rem;
-          font-weight: 800;
-          line-height: 1;
-        }
-        .avg-good .avg-value { color: #4ade80; }
-        .avg-bad .avg-value { color: #f87171; }
-        .avg-goal {
-          font-size: 0.7rem;
-          color: var(--text-muted);
-          font-weight: 600;
-        }
-        .avg-badge {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          padding: 8px 16px;
-          border-radius: var(--radius-full);
-          font-size: 0.85rem;
-          font-weight: 700;
-          text-align: center;
-        }
-        .badge-good {
-          background: rgba(74,222,128,0.1);
-          color: #4ade80;
-          border: 1px solid rgba(74,222,128,0.2);
-        }
-        .badge-bad {
-          background: rgba(248,113,113,0.1);
-          color: #f87171;
-          border: 1px solid rgba(248,113,113,0.2);
-        }
-
-        /* ── Log Form ── */
-        .log-form {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-        .duration-inputs {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-        }
-        .log-btn {
-          margin-top: 4px;
-        }
-
-        /* ── Chart ── */
-        .chart-card {
-          overflow: hidden;
-        }
-        .chart-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 8px;
-        }
-        .chart-title {
-          font-size: 1rem;
-          font-weight: 800;
-          color: var(--text-primary);
-          margin-bottom: 2px;
-        }
-        .chart-sub {
-          font-size: 0.75rem;
-          color: var(--text-muted);
-        }
-        .chart-legend {
-          display: flex;
-          gap: 16px;
-          align-items: center;
-        }
-        .legend-item {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 0.75rem;
-          color: var(--text-muted);
-          font-weight: 500;
-        }
-        .legend-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-        }
-        .legend-dot-duration {
-          background: #FBFF00;
-          box-shadow: 0 0 6px rgba(251,255,0,0.5);
-        }
-        .legend-dot-goal {
-          background: transparent;
-          border: 2px dashed rgba(251,255,0,0.4);
-        }
-        .chart-scroll {
-          overflow-x: auto;
-          margin: 0 -8px;
-          padding: 0 8px;
-        }
-        .sleep-chart {
-          width: 100%;
-          min-width: 500px;
-          height: auto;
-        }
-        .chart-label {
-          fill: var(--text-muted);
-          font-size: 9px;
-          font-family: var(--font-family);
-        }
-        .chart-grid {
-          stroke: rgba(255,255,255,0.05);
-          stroke-width: 0.5;
-          stroke-dasharray: 4 4;
-        }
-        .goal-line {
-          stroke: rgba(251,255,0,0.35);
-          stroke-width: 1.5;
-          stroke-dasharray: 6 4;
-        }
-        .chart-date-label {
-          fill: var(--text-muted);
-          font-size: 9px;
-          font-family: var(--font-family);
-          font-weight: 600;
-        }
-
-        /* Area + Line animation */
-        .area-path {
-          opacity: 0;
-          transition: opacity 1.2s ease-out 0.3s;
-        }
-        .area-visible {
-          opacity: 1;
-        }
-        .line-path {
-          stroke-dasharray: 2000;
-          stroke-dashoffset: 2000;
-          transition: stroke-dashoffset 1.8s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .line-visible {
-          stroke-dashoffset: 0;
-        }
-
-        /* Data dots */
-        .data-dot-group {
-          opacity: 0;
-        }
-        .dot-visible {
-          animation: dotFadeIn 0.4s ease-out forwards;
-        }
-        @keyframes dotFadeIn {
-          from { opacity: 0; transform: scale(0.5); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        .data-dot {
-          transition: r 0.2s ease;
-          cursor: pointer;
-        }
-        .data-dot:hover {
-          r: 7;
-        }
-        .dot-label {
-          fill: var(--text-secondary);
-          font-size: 8px;
-          font-family: var(--font-family);
-          font-weight: 700;
-          opacity: 0;
-          transition: opacity 0.2s ease;
-        }
-        .data-dot-group:hover .dot-label {
-          opacity: 1;
-        }
-
-        /* ── Bottom Row ── */
-        .bottom-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-        }
-
-        /* ── History ── */
-        .history-list {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-        .history-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 10px 14px;
-          background: rgba(255,255,255,0.03);
-          border-radius: var(--radius-xs);
-          border: 1px solid rgba(255,255,255,0.05);
-          transition: background 0.2s ease;
-        }
-        .history-item:hover {
-          background: rgba(255,255,255,0.06);
-        }
-        .history-left {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        .history-dot {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-        .dot-green {
-          background: #4ade80;
-          box-shadow: 0 0 8px rgba(74,222,128,0.4);
-        }
-        .dot-red {
-          background: #f87171;
-          box-shadow: 0 0 8px rgba(248,113,113,0.4);
-        }
-        .dot-empty {
-          background: rgba(255,255,255,0.1);
-        }
-        .history-date-block {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-        .history-date {
-          font-size: 0.85rem;
-          font-weight: 600;
-        }
-        .history-label {
-          font-size: 0.65rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-        .label-good { color: #4ade80; }
-        .label-bad { color: #f87171; }
-        .history-right {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        .history-hours {
-          font-size: 0.9rem;
-          font-weight: 700;
-          color: var(--text-primary);
-        }
-        .history-no-data {
-          color: var(--text-muted);
-          font-weight: 400;
-          font-size: 0.8rem;
-        }
-        .history-del {
-          width: 22px;
-          height: 22px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: none;
-          background: rgba(248,113,113,0.1);
-          color: #f87171;
-          border-radius: 50%;
-          font-size: 0.9rem;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          font-family: var(--font-family);
-        }
-        .history-del:hover {
-          background: rgba(248,113,113,0.25);
-        }
-
-        /* ── Insights ── */
-        .insights-grid {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-        .insight-item {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          padding: 12px 14px;
-          background: rgba(255,255,255,0.03);
-          border-radius: var(--radius-xs);
-          border: 1px solid rgba(255,255,255,0.05);
-        }
-        .insight-icon {
-          font-size: 1.4rem;
-          flex-shrink: 0;
-        }
-        .insight-body {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-        .insight-label {
-          font-size: 0.7rem;
-          font-weight: 600;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-        .insight-value {
-          font-size: 0.95rem;
-          font-weight: 700;
-          color: var(--text-primary);
-        }
-        .insights-empty {
-          text-align: center;
-          padding: 24px 16px;
-          color: var(--text-muted);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 10px;
-          font-size: 0.85rem;
-        }
-
-        /* ── Responsive ── */
-        @media (max-width: 1024px) {
-          .bottom-row {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        @media (max-width: 768px) {
-          .top-row {
-            grid-template-columns: 1fr;
-          }
-          .bottom-row {
-            grid-template-columns: 1fr;
-          }
-          .sleep-title {
-            font-size: 1.3rem;
-          }
-        }
-      `}</style>
     </div>
   );
 }

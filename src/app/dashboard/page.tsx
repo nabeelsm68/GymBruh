@@ -1,533 +1,439 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import Icon from '@/components/ui/Icons';
+import './dashboard.css';
 
+/* ═══ Types ═══ */
 interface Profile {
   name: string;
   goal: string;
   vibe: string;
-  activity_level: number;
-  diet_preference: string;
-  allergies: string[];
 }
 
 interface FoodLog {
-  id: string;
-  food_name: string;
   calories: number;
-  protein: number;
-  carbs: number;
-  fats: number;
-  created_at: string;
 }
 
-const goalLabels: Record<string, string> = {
-  lose_weight: '🔥 Lose Weight',
-  build_muscle: '💪 Build Muscle',
-  maintain: '⚖️ Maintain',
-  general_fitness: '🏆 General Fitness',
-  endurance: '🏃 Endurance',
-  flexibility: '🧘 Flexibility',
+interface JournalEntry {
+  note: string;
+  photos: string[];
+  date: string;
+}
+
+interface SleepData {
+  date: string;
+  hours: number;
+  label: string;
+}
+
+/* ═══ Constants ═══ */
+const goalIcons: Record<string, string> = {
+  lose_weight: 'fire',
+  build_muscle: 'muscle',
+  maintain: 'scale',
+  general_fitness: 'trophy',
+  endurance: 'runner',
 };
 
-const vibeGreetings: Record<string, (name: string) => string> = {
-  strict: (name) => `No excuses today, ${name}. Let's crush it.`,
-  balanced: (name) => `Good to see you, ${name}. Let's make progress.`,
-  chill: (name) => `Hey ${name}! No pressure, just vibes today 😎`,
-  hype: (name) => `LET'S GOOO ${name}!! Today is YOUR day! 🔥🔥`,
+const goalLabels: Record<string, string> = {
+  lose_weight: 'Weight Loss',
+  build_muscle: 'Muscle Gain',
+  maintain: 'Maintain',
+  general_fitness: 'Fitness',
+  endurance: 'Endurance',
 };
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [streak, setStreak] = useState(0);
+
+  // Dynamic Data States
+  const [waterGlasses, setWaterGlasses] = useState(0);
+  const [sleepData, setSleepData] = useState<SleepData[]>([]);
+  const [latestJournal, setLatestJournal] = useState<JournalEntry | null>(null);
+  const [points, setPoints] = useState(0);
+  const [plantGrowth, setPlantGrowth] = useState(0); // 0-100
+  const [activityMap, setActivityMap] = useState<{ level: number, day: number, isToday: boolean, isFuture: boolean }[]>([]); // 4 weeks of activity
+
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  /* ═══ Data Fetching Logic ═══ */
+  const fetchData = useCallback(async () => {
+    const isGuest = document.cookie.includes('gymbruh-guest=true');
+    const today = new Date();
+
+    // 1. Water Intake
+    const waterKey = `gymbruh-water-${todayStr}`;
+    const storedWater = localStorage.getItem(waterKey);
+    setWaterGlasses(storedWater ? parseInt(storedWater, 10) : 0);
+
+    // 2. Sleep Data (Last 7 Days)
+    const sleep = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const ds = d.toISOString().split('T')[0];
+      const key = `gymbruh-sleep-${ds}`;
+      const val = localStorage.getItem(key);
+      sleep.push({
+        date: ds,
+        hours: val ? parseFloat(val) : 0,
+        label: d.toLocaleDateString('en-US', { weekday: 'narrow' })
+      });
+    }
+    setSleepData(sleep);
+
+    // 3. Journal Snapshot
+    const journalKey = 'gymbruh-cj-entries';
+    const storedJournal = localStorage.getItem(journalKey);
+    if (storedJournal) {
+      const entries = JSON.parse(storedJournal) as JournalEntry[];
+      if (entries.length > 0) {
+        setLatestJournal(entries[entries.length - 1]);
+      }
+    }
+
+    // 4. Activity Heatmap (4 Full Weeks Aligned to Monday)
+    const activity = [];
+    let totalActPoints = 0;
+
+    // Get Monday of the current week (Mon=1, Sun=0 in JS getDay)
+    const currentDay = now.getDay();
+    const daysSinceMonday = currentDay === 0 ? 6 : currentDay - 1;
+    const mondayThisWeek = new Date(now);
+    mondayThisWeek.setDate(now.getDate() - daysSinceMonday);
+
+    // Start from Monday 3 weeks ago (to show 4 rows total)
+    const startMonday = new Date(mondayThisWeek);
+    startMonday.setDate(mondayThisWeek.getDate() - 21);
+
+    for (let i = 0; i < 28; i++) {
+      const d = new Date(startMonday);
+      d.setDate(startMonday.getDate() + i);
+      const ds = d.toISOString().split('T')[0];
+
+      let level = 0;
+      if (localStorage.getItem(`gymbruh-water-${ds}`)) level++;
+      if (localStorage.getItem(`gymbruh-sleep-${ds}`)) level++;
+
+      activity.push({
+        level,
+        day: d.getDate(),
+        isToday: ds === todayStr,
+        isFuture: d > now
+      });
+      totalActPoints += level;
+    }
+    setActivityMap(activity);
+    setPlantGrowth(Math.min((totalActPoints / 56) * 100, 100)); // Sample logic
+
+    if (isGuest) {
+      const stored = localStorage.getItem('gymbruh-guest-profile');
+      setProfile(stored ? JSON.parse(stored) : { name: 'GymBruh', goal: 'general_fitness', vibe: 'chill' });
+      setFoodLogs([{ calories: 1200 }]); // Demo log
+      setPoints(2450);
+      setLoading(false);
+      return;
+    }
+
+    // Supabase Auth Code
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        if (profileData) setProfile(profileData);
+        const { data: logs } = await supabase.from('food_logs').select('calories').eq('user_id', user.id).gte('created_at', todayStr);
+        if (logs) setFoodLogs(logs);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setLoading(false);
+  }, [todayStr]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      const isGuest = document.cookie.includes('gymbruh-guest=true');
-
-      if (isGuest) {
-        // Guest mode — load from localStorage
-        const stored = localStorage.getItem('gymbruh-guest-profile');
-        if (stored) {
-          setProfile(JSON.parse(stored));
-        } else {
-          setProfile({ name: 'Guest', goal: 'general_fitness', vibe: 'chill', activity_level: 3, diet_preference: '', allergies: [] });
-        }
-        // Demo food logs for guests
-        setFoodLogs([
-          { id: '1', food_name: '🥣 Oatmeal with Berries', calories: 320, protein: 12, carbs: 45, fats: 8, created_at: new Date().toISOString() },
-          { id: '2', food_name: '🥗 Grilled Chicken Salad', calories: 450, protein: 38, carbs: 15, fats: 22, created_at: new Date().toISOString() },
-          { id: '3', food_name: '🍌 Banana Protein Shake', calories: 280, protein: 25, carbs: 35, fats: 5, created_at: new Date().toISOString() },
-        ]);
-        setStreak(3);
-        setLoading(false);
-        return;
-      }
-
-      // Authenticated user
-      try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (user) {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-
-          if (profileData) setProfile(profileData);
-
-          const today = new Date().toISOString().split('T')[0];
-          const { data: logs } = await supabase
-            .from('food_logs')
-            .select('*')
-            .eq('user_id', user.id)
-            .gte('created_at', today)
-            .order('created_at', { ascending: false });
-
-          if (logs) setFoodLogs(logs);
-          setStreak(Math.floor(Math.random() * 7) + 1);
-        }
-      } catch (err) {
-        console.error('Dashboard fetch error:', err);
-      }
-      setLoading(false);
-    };
-
     fetchData();
-  }, []);
+    // Refresh every minute to keep it "Live"
+    const interval = setInterval(fetchData, 60000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
+  /* ═══ Derived Stats ═══ */
   const totalCalories = foodLogs.reduce((sum, log) => sum + (log.calories || 0), 0);
-  const totalProtein = foodLogs.reduce((sum, log) => sum + (log.protein || 0), 0);
-  const totalCarbs = foodLogs.reduce((sum, log) => sum + (log.carbs || 0), 0);
-  const totalFats = foodLogs.reduce((sum, log) => sum + (log.fats || 0), 0);
-
   const calorieTarget = 2000;
-  const proteinTarget = 150;
-  const carbsTarget = 250;
-  const fatsTarget = 65;
+  const remainingCals = Math.max(calorieTarget - totalCalories, 0);
+  const remainingWater = Math.max(8 - waterGlasses, 0);
+  const streak = 5; // Placeholder
 
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner" />
-        <p>Loading your dashboard...</p>
-        <style jsx>{`
-          .loading-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 60vh;
-            gap: 16px;
-            color: var(--text-secondary);
-          }
-          .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--glass-border);
-            border-top-color: #FBFF00;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-          }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
-    );
-  }
+  const challenges = [
+    { id: 'water', text: 'Drink 8 glasses of water', done: waterGlasses >= 8, points: 500, icon: 'water' },
+    { id: 'food', text: 'Log all meals today', done: foodLogs.length > 0, points: 300, icon: 'utensils' },
+    { id: 'sleep', text: 'Get 7+ hours of sleep', done: sleepData[6]?.hours >= 7, points: 1000, icon: 'moon' },
+  ];
 
-  const greeting = profile?.vibe && profile?.name
-    ? (vibeGreetings[profile.vibe] || vibeGreetings.balanced)(profile.name)
-    : `Welcome back! 💪`;
+  const mascotStance = useMemo(() => {
+    if (sleepData[6]?.hours < 6) return '😴';
+    if (waterGlasses >= 8 && foodLogs.length > 0) return '💪';
+    if (plantGrowth > 50) return '🦖';
+    return '👋';
+  }, [sleepData, waterGlasses, foodLogs, plantGrowth]);
+
+  if (loading) return <div className="dash-loading"><div className="spinner" /></div>;
 
   return (
     <div className="dashboard">
-      {/* Header */}
-      <div className="dash-header">
-        <div>
-          <h1 className="dash-greeting">{greeting}</h1>
-          <p className="dash-date">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </p>
-        </div>
-        {profile?.goal && (
-          <div className="badge badge-info">{goalLabels[profile.goal] || profile.goal}</div>
-        )}
-      </div>
-
-      {/* Widget Grid */}
-      <div className="widget-grid">
-        {/* Calorie Ring Widget */}
-        <div className="glass-card-static widget widget-calories">
-          <h3 className="widget-title">🔥 Calories Today</h3>
-          <div className="calorie-ring-container">
-            <svg viewBox="0 0 120 120" className="calorie-ring">
-              <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10" />
-              <circle
-                cx="60" cy="60" r="52" fill="none"
-                stroke="url(#calorieGradient)"
-                strokeWidth="10"
-                strokeLinecap="round"
-                strokeDasharray={`${Math.min((totalCalories / calorieTarget) * 327, 327)} 327`}
-                transform="rotate(-90 60 60)"
-                style={{ transition: 'stroke-dasharray 1s ease-out' }}
-              />
-              <defs>
-                <linearGradient id="calorieGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#FBFF00" />
-                  <stop offset="50%" stopColor="#e6eb00" />
-                  <stop offset="100%" stopColor="#FBFF00" />
-                </linearGradient>
-              </defs>
-            </svg>
-            <div className="calorie-ring-text">
-              <span className="calorie-value">{totalCalories}</span>
-              <span className="calorie-label">/ {calorieTarget}</span>
-            </div>
+      {/* ═══ Header Section ═══ */}
+      <section className="dash-top">
+        <div className="mascot-wrap">
+          <div className="mascot-avatar">{mascotStance}</div>
+          <div className="greeting-info">
+            <h1>Hii, <span className="serif">{profile?.name || 'Bruh'}!</span></h1>
+            <p>Your sanctuary is looking {plantGrowth > 70 ? 'vibrant' : 'cozy'} today.</p>
           </div>
         </div>
+        <div className="points-badge">
+          <span className="points-val">{points.toLocaleString()}</span>
+          <span className="points-label">Total Points</span>
+        </div>
+      </section>
 
-        {/* Macros Widget */}
-        <div className="glass-card-static widget widget-macros">
-          <h3 className="widget-title">📊 Macros</h3>
-          <div className="macro-bars">
-            {[
-              { label: 'Protein', value: totalProtein, target: proteinTarget, color: '#60a5fa', unit: 'g' },
-              { label: 'Carbs', value: totalCarbs, target: carbsTarget, color: '#facc15', unit: 'g' },
-              { label: 'Fats', value: totalFats, target: fatsTarget, color: '#c084fc', unit: 'g' },
-            ].map((macro) => (
-              <div key={macro.label} className="macro-bar-item">
-                <div className="macro-bar-header">
-                  <span className="macro-bar-label">{macro.label}</span>
-                  <span className="macro-bar-value" style={{ color: macro.color }}>
-                    {macro.value}<span className="macro-unit">/{macro.target}{macro.unit}</span>
-                  </span>
+      {/* ═══ Master Grid ═══ */}
+      <div className="dash-grid">
+
+        {/* 🏆 Wellness Challenges */}
+        <div className="widget-card">
+          <div className="widget-header">
+            <h3 className="widget-title">
+              <span className="icon-wrap"><Icon name="trophy" size={14} /></span>
+              Daily Challenges
+            </h3>
+          </div>
+          <div className="challenges-list">
+            {challenges.map(ch => (
+              <div key={ch.id} className={`challenge-item ${ch.done ? 'challenge-item-done ch-done' : ''}`}>
+                <div className="challenge-info">
+                  <span className="ch-dot" />
+                  <span className="ch-text">{ch.text}</span>
                 </div>
-                <div className="macro-bar-track">
-                  <div
-                    className="macro-bar-fill"
-                    style={{
-                      width: `${Math.min((macro.value / macro.target) * 100, 100)}%`,
-                      background: `linear-gradient(90deg, ${macro.color}, ${macro.color}88)`,
-                    }}
-                  />
-                </div>
+                {ch.done ? <Icon name="checkCircle" size={16} /> : <span className="ch-pts">+{ch.points}</span>}
               </div>
             ))}
           </div>
         </div>
 
-        {/* Streak Widget */}
-        <div className="glass-card-static widget widget-streak">
-          <h3 className="widget-title">🔥 Streak</h3>
-          <div className="streak-display">
-            <span className="streak-number">{streak}</span>
-            <span className="streak-label">days</span>
+        {/* 🔋 Power Center (Water & Calories) */}
+        <div className="widget-card power-widget">
+          <div className="widget-header">
+            <h3 className="widget-title">
+              <span className="icon-wrap"><Icon name="lightning" size={14} /></span>
+              Power Center
+            </h3>
           </div>
-          <p className="streak-message">
-            {streak >= 7 ? 'On fire! Keep it up! 🚀' :
-              streak >= 3 ? 'Building momentum! 💪' :
-                'Every day counts! ✨'}
-          </p>
+          <div className="power-stats-grid">
+            <div className="power-stat-item">
+              <div className="ps-header">
+                <div className="ps-icon ps-icon-water"><Icon name="droplet" size={16} /></div>
+                <div className="ps-meta">
+                  <span className="ps-label">Hydration</span>
+                  <span className="ps-sub">{remainingWater > 0 ? `${remainingWater} cups left` : 'Fully Hydrated!'}</span>
+                </div>
+                <span className="ps-val">{waterGlasses}/8</span>
+              </div>
+              <div className="ps-track">
+                <div className="ps-fill ps-fill-water" style={{ width: `${Math.min((waterGlasses / 8) * 100, 100)}%` }} />
+              </div>
+            </div>
+
+            <div className="power-stat-item">
+              <div className="ps-header">
+                <div className="ps-icon ps-icon-fuel"><Icon name="fire" size={16} /></div>
+                <div className="ps-meta">
+                  <span className="ps-label">Fuel (kcal)</span>
+                  <span className="ps-sub">{remainingCals > 0 ? `${remainingCals} kcal left` : 'Goal Reached!'}</span>
+                </div>
+                <span className="ps-val">{totalCalories}</span>
+              </div>
+              <div className="ps-track">
+                <div className="ps-fill ps-fill-fuel" style={{ width: `${Math.min((totalCalories / calorieTarget) * 100, 100)}%` }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Heatmap Mini Integration */}
+          <div className="heatmap-section">
+            <div className="heatmap-header">
+              <span className="prog-label">Consistency Pulse</span>
+              <div className="heatmap-legend">
+                <span>Less</span>
+                <div className="leg-cell heat-0" />
+                <div className="leg-cell heat-1" />
+                <div className="leg-cell heat-2" />
+                <div className="leg-cell heat-3" />
+                <div className="leg-cell heat-4" />
+                <span>More</span>
+              </div>
+            </div>
+            <div className="heatmap-container">
+              <div className="heatmap-header-labels">
+                {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((d, i) => <span key={i} className="day-label">{d}</span>)}
+              </div>
+              <div className="heatmap-grid">
+                {activityMap.map((data, i) => (
+                  <div
+                    key={i}
+                    className={`heat-cell heat-${data.level} ${data.isToday ? 'heat-today' : ''} ${data.isFuture ? 'heat-future' : ''}`}
+                    title={data.isFuture ? 'Future date' : `Level ${data.level}`}
+                  >
+                    <span className="cell-number">{data.day}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="glass-card-static widget widget-actions">
-          <h3 className="widget-title">⚡ Quick Actions</h3>
-          <div className="action-grid">
-            <Link href="/dashboard/scanner" className="action-btn">
-              <span className="action-icon">📸</span>
-              <span>Scan Food</span>
-            </Link>
-            <Link href="/dashboard/planner" className="action-btn">
-              <span className="action-icon">🧠</span>
-              <span>AI Plan</span>
-            </Link>
-            <Link href="/dashboard/nutritionists" className="action-btn">
-              <span className="action-icon">👨‍⚕️</span>
-              <span>Find Pro</span>
-            </Link>
+        {/* 🌱 Virtual Sanctuary */}
+        <div className="widget-card plant-widget">
+          <div className="widget-header" style={{ width: '100%', marginBottom: '10px' }}>
+            <h3 className="widget-title">
+              <span className="icon-wrap"><Icon name="sparkles" size={14} /></span>
+              Virtual Plant
+            </h3>
+          </div>
+          <div className="plant-stage">
+            {plantGrowth > 80 ? '🌳' : plantGrowth > 50 ? '🌿' : plantGrowth > 20 ? '🌱' : '🪴'}
+          </div>
+          <div className="plant-info">
+            <h4>Zen Garden</h4>
+            <p>Grow your plant by hitting daily goals</p>
+            <div className="plant-growth-bar">
+              <div className="plant-growth-fill" style={{ width: `${plantGrowth}%` }} />
+            </div>
           </div>
         </div>
 
-        {/* Recent Meals */}
-        <div className="glass-card-static widget widget-meals">
-          <h3 className="widget-title">🍽️ Today&apos;s Meals</h3>
-          {foodLogs.length === 0 ? (
-            <div className="empty-state">
-              <span style={{ fontSize: '2rem' }}>🍕</span>
-              <p>No meals logged yet today</p>
-              <Link href="/dashboard/scanner" className="glass-btn glass-btn-sm glass-btn-primary">
-                📸 Scan your first meal
-              </Link>
+        {/* 💤 Sleep Pulse (Mini Graph) */}
+        <div className="widget-card">
+          <div className="widget-header">
+            <h3 className="widget-title">
+              <span className="icon-wrap"><Icon name="moon" size={14} /></span>
+              Sleep Pulse
+            </h3>
+            <Link href="/dashboard/sleep" className="glass-btn glass-btn-sm" style={{ padding: '6px 12px', fontSize: '0.75rem' }}>Update</Link>
+          </div>
+          <div className="mini-graph-wrap">
+            {sleepData.map((d, i) => (
+              <div key={i} className="mini-bar-col">
+                <div
+                  className={`mini-bar ${d.hours >= 7 ? 'mini-bar-goal' : ''}`}
+                  style={{ height: `${Math.max((d.hours / 12) * 100, 4)}%` }} // Min 4% for visibility
+                />
+                <span className="mini-day">{d.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 📸 Journal Snippet */}
+        <div className="widget-card">
+          <div className="widget-header">
+            <h3 className="widget-title">
+              <span className="icon-wrap"><Icon name="book" size={14} /></span>
+              Latest Memory
+            </h3>
+            <Link href="/dashboard/journal" className="glass-btn glass-btn-sm" style={{ padding: '4px 8px' }}>View All</Link>
+          </div>
+          {latestJournal ? (
+            <div className="spotlight-card">
+              {latestJournal.photos[0] && (
+                <div className="spotlight-img" style={{ backgroundImage: `url(${latestJournal.photos[0]})` }} />
+              )}
+              <p className="spotlight-note">&ldquo;{latestJournal.note}&rdquo;</p>
             </div>
           ) : (
-            <div className="meals-list">
-              {foodLogs.slice(0, 5).map((log) => (
-                <div key={log.id} className="meal-item">
-                  <span className="meal-name">{log.food_name}</span>
-                  <div className="meal-macros">
-                    <span className="macro-calories">{log.calories} cal</span>
-                    <span className="macro-protein">{log.protein}g P</span>
-                  </div>
-                </div>
-              ))}
+            <div className="empty-state" style={{ textAlign: 'center', color: 'var(--text-muted)', paddingTop: '20px' }}>
+              <Icon name="camera" size={24} />
+              <p style={{ fontSize: '0.8rem', marginTop: '10px' }}>No journal entries yet</p>
             </div>
           )}
         </div>
+
+        {/* ⚡ Command Center */}
+        <div className="widget-card">
+          <div className="widget-header">
+            <h3 className="widget-title">
+              <span className="icon-wrap"><Icon name="lightning" size={14} /></span>
+              Command Center
+            </h3>
+          </div>
+          <div className="command-grid-new">
+            <Link href="/dashboard/scanner" className="action-tile-new">
+              <div className="tile-icon"><Icon name="camera" size={24} /></div>
+              <div className="tile-text">
+                <span className="tile-label">Scan Food</span>
+                <span className="tile-sub">AI Nutrition</span>
+              </div>
+            </Link>
+            <Link href="/dashboard/planner" className="action-tile-new">
+              <div className="tile-icon"><Icon name="brain" size={24} /></div>
+              <div className="tile-text">
+                <span className="tile-label">AI Planner</span>
+                <span className="tile-sub">Custom Workouts</span>
+              </div>
+            </Link>
+          </div>
+          <div className="streak-pill-new">
+            <span className="streak-fire">🔥</span>
+            <span className="streak-text">{streak} Day Consistency</span>
+          </div>
+        </div>
+
       </div>
 
       <style jsx>{`
-        .dashboard {
-          animation: fadeInUp 0.5s ease-out;
-        }
-
-        .dash-header {
+        .dash-loading {
           display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 28px;
-          flex-wrap: wrap;
-          gap: 16px;
+          align-items: center;
+          justify-content: center;
+          min-height: 60vh;
         }
-
-        .dash-greeting {
-          font-size: 1.6rem;
-          font-weight: 800;
-          margin-bottom: 4px;
+        .spinner {
+          width: 40px;
+          height: 40px;
+          border: 3px solid rgba(255,255,255,0.05);
+          border-top-color: var(--lime);
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
         }
-
-        .dash-date {
-          color: var(--text-muted);
-          font-size: 0.9rem;
-        }
-
-        .widget-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 16px;
-        }
-
-        .widget {
-          padding: 24px;
-        }
-
-        .widget-title {
-          font-size: 0.85rem;
-          font-weight: 700;
-          margin-bottom: 20px;
-          color: #d4d4d8;
-          letter-spacing: 0.02em;
-        }
-
-        /* Calorie Ring */
-        .widget-calories {
-          grid-row: span 1;
-        }
-
-        .calorie-ring-container {
-          position: relative;
-          width: 140px;
-          height: 140px;
-          margin: 0 auto;
-        }
-
-        .calorie-ring {
-          width: 100%;
-          height: 100%;
-        }
-
-        .calorie-ring-text {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          text-align: center;
-        }
-
-        .calorie-value {
-          display: block;
-          font-size: 1.8rem;
-          font-weight: 800;
-          color: #FBFF00;
-        }
-
-        .calorie-label {
-          font-size: 0.75rem;
-          color: var(--text-muted);
-        }
-
-        /* Macros */
-        .macro-bars {
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .action-btn-new {
           display: flex;
           flex-direction: column;
-          gap: 16px;
-        }
-
-        .macro-bar-header {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 6px;
-        }
-
-        .macro-bar-label {
-          font-size: 0.85rem;
-          font-weight: 600;
-          color: var(--text-secondary);
-        }
-
-        .macro-bar-value {
-          font-size: 0.85rem;
-          font-weight: 700;
-        }
-
-        .macro-unit {
-          color: var(--text-muted);
-          font-weight: 400;
-        }
-
-        .macro-bar-track {
-          height: 8px;
-          background: rgba(255, 255, 255, 0.08);
-          border-radius: 4px;
-          overflow: hidden;
-        }
-
-        .macro-bar-fill {
-          height: 100%;
-          border-radius: 4px;
-          transition: width 1s ease-out;
-        }
-
-        /* Streak */
-        .streak-display {
-          text-align: center;
-          margin-bottom: 12px;
-        }
-
-        .streak-number {
-          font-size: 3.5rem;
-          font-weight: 900;
-          background: linear-gradient(135deg, #FBFF00, #e6eb00);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          line-height: 1;
-        }
-
-        .streak-label {
-          display: block;
-          font-size: 0.85rem;
-          color: var(--text-muted);
-          font-weight: 600;
-          margin-top: 4px;
-        }
-
-        .streak-message {
-          text-align: center;
-          font-size: 0.85rem;
-          color: var(--text-secondary);
-        }
-
-        /* Actions */
-        .action-grid {
-          display: flex;
-          flex-direction: column;
+          align-items: center;
+          justify-content: center;
           gap: 10px;
-        }
-
-        .action-btn {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 12px 14px;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 10px;
-          color: #fafafa !important;
-          text-decoration: none !important;
-          font-weight: 600;
-          font-size: 0.9rem;
-          transition: all 0.2s ease;
-        }
-
-        .action-btn:hover {
-          background: rgba(255, 255, 255, 0.08);
-          border-color: rgba(251, 255, 0, 0.2);
-          color: #FBFF00 !important;
-          transform: translateX(4px);
-        }
-
-        .action-icon {
-          font-size: 1.3rem;
-        }
-
-        /* Meals */
-        .widget-meals {
-          grid-column: span 2;
-        }
-
-        .empty-state {
-          text-align: center;
           padding: 20px;
-          color: var(--text-muted);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 12px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 18px;
+          color: var(--text-primary);
+          text-decoration: none;
+          font-weight: 700;
+          font-size: 0.85rem;
+          transition: all 0.3s ease;
         }
-
-        .meals-list {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .meal-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 12px 16px;
-          background: var(--glass-bg);
-          border-radius: var(--radius-sm);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .meal-name {
-          font-weight: 600;
-          font-size: 0.9rem;
-        }
-
-        .meal-macros {
-          display: flex;
-          gap: 12px;
-          font-size: 0.8rem;
-          font-weight: 600;
-        }
-
-        @media (max-width: 1024px) {
-          .widget-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-
-        @media (max-width: 768px) {
-          .widget-grid {
-            grid-template-columns: 1fr;
-          }
-          .widget-meals {
-            grid-column: span 1;
-          }
-          .dash-greeting {
-            font-size: 1.3rem;
-          }
+        .action-btn-new:hover {
+          background: rgba(251, 255, 0, 0.06);
+          border-color: rgba(251, 255, 0, 0.2);
+          transform: translateY(-2px);
+          color: var(--lime);
         }
       `}</style>
     </div>

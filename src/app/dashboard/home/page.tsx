@@ -1,756 +1,485 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
+import { Icon } from '@/components/ui/Icons';
+import './home.css';
 
 /* ── Motivational Quotes ── */
 const quotes = [
-    "The only bad workout is the one that didn't happen. 💪",
-    "Your body can stand almost anything. It's your mind you have to convince. 🧠",
-    "Discipline is choosing between what you want now and what you want most. 🔥",
-    "Strive for progress, not perfection. 🚀",
-    "The pain you feel today is the strength you feel tomorrow. ⚡",
-    "Don't stop when you're tired. Stop when you're done. 🏆",
-    "Sweat is fat crying. 💧",
-    "Champions aren't made in gyms — champions are made from something deep inside. 🥇",
+  "The only bad workout is the one that didn't happen.",
+  "Your body can stand almost anything. It's your mind you have to convince.",
+  "Discipline is choosing between what you want now and what you want most.",
+  "Strive for progress, not perfection.",
+  "The pain you feel today is the strength you feel tomorrow.",
+  "Don't stop when you're tired. Stop when you're done.",
+  "Sweat is fat crying.",
+  "Champions aren't made in gyms — champions are made from something deep inside.",
 ];
 
 /* ── Helpers ── */
 function getStorageKey(prefix: string, date: Date) {
-    return `gymbruh-${prefix}-${date.toISOString().split('T')[0]}`;
-}
-
-function formatDate(d: Date) {
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  return `gymbruh-${prefix}-${date.toISOString().split('T')[0]}`;
 }
 
 function isSameDay(a: Date, b: Date) {
-    return a.toISOString().split('T')[0] === b.toISOString().split('T')[0];
+  return a.toISOString().split('T')[0] === b.toISOString().split('T')[0];
 }
 
 /* ── Types ── */
 interface MealEntry {
-    id: string;
-    name: string;
-    calories: number;
+  id: string;
+  name: string;
+  calories: number;
 }
 
 type MealType = 'breakfast' | 'lunch' | 'dinner';
 
+function getTimeGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return { text: 'Good Morning', icon: 'sunrise' as const, tagline: "Start your day strong!" };
+  if (h < 17) return { text: 'Good Afternoon', icon: 'sun' as const, tagline: "Keep the momentum going!" };
+  return { text: 'Good Evening', icon: 'moon' as const, tagline: "Great work today!" };
+}
+
 export default function HomePage() {
-    const today = new Date();
+  const today = useMemo(() => new Date(), []);
+  const [mounted, setMounted] = useState(false);
+  const [greeting, setGreeting] = useState<{ text: string, tagline: string, icon: 'sunrise' | 'sun' | 'moon' }>({
+    text: 'Welcome',
+    tagline: 'Loading your dashboard...',
+    icon: 'sunrise' as const
+  });
 
-    /* ── Quote Rotation ── */
-    const [quoteIdx, setQuoteIdx] = useState(0);
-    const [quoteFade, setQuoteFade] = useState(true);
+  useEffect(() => {
+    setMounted(true);
+    setGreeting(getTimeGreeting());
+  }, []);
 
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setQuoteFade(false);
-            setTimeout(() => {
-                setQuoteIdx((i) => (i + 1) % quotes.length);
-                setQuoteFade(true);
-            }, 400);
-        }, 4000);
-        return () => clearInterval(interval);
-    }, []);
+  /* ── Quote Rotation ── */
+  const [quoteIdx, setQuoteIdx] = useState(0);
+  const [quoteFade, setQuoteFade] = useState(true);
 
-    /* ── Date Carousel ── */
-    const [dateOffset, setDateOffset] = useState(0);
-    const [selectedDate, setSelectedDate] = useState(today);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setQuoteFade(false);
+      setTimeout(() => {
+        setQuoteIdx((i) => (i + 1) % quotes.length);
+        setQuoteFade(true);
+      }, 400);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
-    const carouselDates = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(today);
-        d.setDate(today.getDate() + dateOffset - 3 + i);
-        return d;
-    });
+  /* ── Date Carousel ── */
+  const [dateOffset, setDateOffset] = useState(0);
+  const [selectedDate, setSelectedDate] = useState(today);
 
-    /* ── Water Log ── */
-    const [waterGlasses, setWaterGlasses] = useState(0);
+  const carouselDates = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() + dateOffset - 6 + i);
+    return d;
+  });
 
-    useEffect(() => {
-        const stored = localStorage.getItem(getStorageKey('water', today));
-        if (stored) setWaterGlasses(parseInt(stored, 10));
-    }, []);
+  /* ── Water Log ── */
+  const [waterGlasses, setWaterGlasses] = useState(0);
 
-    const updateWater = useCallback(
-        (amount: number) => {
-            setWaterGlasses((prev) => {
-                const next = Math.max(0, prev + amount);
-                localStorage.setItem(getStorageKey('water', today), String(next));
-                return next;
-            });
-        },
-        [today]
-    );
+  useEffect(() => {
+    const stored = localStorage.getItem(getStorageKey('water', today));
+    if (stored) setWaterGlasses(parseInt(stored, 10));
+  }, []);
 
-    /* ── Meal Log ── */
-    const [meals, setMeals] = useState<Record<MealType, MealEntry[]>>({
-        breakfast: [],
-        lunch: [],
-        dinner: [],
-    });
-    const [activeMealForm, setActiveMealForm] = useState<MealType | null>(null);
-    const [mealName, setMealName] = useState('');
-    const [mealCals, setMealCals] = useState('');
+  const updateWater = useCallback(
+    (amount: number) => {
+      setWaterGlasses((prev) => {
+        const next = Math.max(0, prev + amount);
+        localStorage.setItem(getStorageKey('water', today), String(next));
+        return next;
+      });
+    },
+    [today]
+  );
 
-    useEffect(() => {
-        const stored = localStorage.getItem(getStorageKey('meals', today));
-        if (stored) {
-            try {
-                setMeals(JSON.parse(stored));
-            } catch { /* ignore */ }
-        }
-    }, []);
+  /* ── Meal Log ── */
+  const [meals, setMeals] = useState<Record<MealType, MealEntry[]>>({
+    breakfast: [],
+    lunch: [],
+    dinner: [],
+  });
+  const [activeMealForm, setActiveMealForm] = useState<MealType | null>(null);
+  const [mealName, setMealName] = useState('');
+  const [mealCals, setMealCals] = useState('');
 
-    const saveMeals = (updated: Record<MealType, MealEntry[]>) => {
-        setMeals(updated);
-        localStorage.setItem(getStorageKey('meals', today), JSON.stringify(updated));
+  useEffect(() => {
+    const stored = localStorage.getItem(getStorageKey('meals', today));
+    if (stored) {
+      try { setMeals(JSON.parse(stored)); } catch { /* ignore */ }
+    }
+  }, []);
+
+  const saveMeals = (updated: Record<MealType, MealEntry[]>) => {
+    setMeals(updated);
+    localStorage.setItem(getStorageKey('meals', today), JSON.stringify(updated));
+  };
+
+  const addMeal = (type: MealType) => {
+    if (!mealName.trim()) return;
+    const entry: MealEntry = {
+      id: Date.now().toString(),
+      name: mealName.trim(),
+      calories: parseInt(mealCals, 10) || 0,
     };
+    const updated = { ...meals, [type]: [...meals[type], entry] };
+    saveMeals(updated);
+    setMealName('');
+    setMealCals('');
+    setActiveMealForm(null);
+  };
 
-    const addMeal = (type: MealType) => {
-        if (!mealName.trim()) return;
-        const entry: MealEntry = {
-            id: Date.now().toString(),
-            name: mealName.trim(),
-            calories: parseInt(mealCals, 10) || 0,
-        };
-        const updated = { ...meals, [type]: [...meals[type], entry] };
-        saveMeals(updated);
-        setMealName('');
-        setMealCals('');
-        setActiveMealForm(null);
-    };
+  const removeMeal = (type: MealType, id: string) => {
+    const updated = { ...meals, [type]: meals[type].filter((m) => m.id !== id) };
+    saveMeals(updated);
+  };
 
-    const removeMeal = (type: MealType, id: string) => {
-        const updated = { ...meals, [type]: meals[type].filter((m) => m.id !== id) };
-        saveMeals(updated);
-    };
+  /* ── Calorie Summary ── */
+  const allMealEntries = [...meals.breakfast, ...meals.lunch, ...meals.dinner];
+  const totalCalories = allMealEntries.reduce((s, m) => s + m.calories, 0);
+  const calorieTarget = 2000;
+  const waterTarget = 8;
+  const caloriePercent = Math.min((totalCalories / calorieTarget) * 100, 100);
+  const waterPercent = Math.min((waterGlasses / waterTarget) * 100, 100);
 
-    /* ── Calorie Summary ── */
-    const allMealEntries = [...meals.breakfast, ...meals.lunch, ...meals.dinner];
-    const totalCalories = allMealEntries.reduce((s, m) => s + m.calories, 0);
-    const calorieTarget = 2000;
-    const waterTarget = 8;
+  /* ── Today's Sleep ── */
+  const [todaySleep, setTodaySleep] = useState(0);
+  useEffect(() => {
+    if (!mounted) return;
+    const key = `gymbruh-sleep-${today.toISOString().split('T')[0]}`;
+    const val = localStorage.getItem(key);
+    if (val) setTodaySleep(parseFloat(val));
+  }, [mounted, today]);
 
-    return (
-        <div className="home-page">
-            {/* ═══ Motivational Banner ═══ */}
-            <section className="banner glass-card-static">
-                <div className="banner-icon">🏋️</div>
-                <p className={`banner-quote ${quoteFade ? 'fade-in' : 'fade-out'}`}>
-                    {quotes[quoteIdx]}
-                </p>
-                <div className="banner-dots">
-                    {quotes.map((_, i) => (
-                        <span key={i} className={`dot ${i === quoteIdx ? 'dot-active' : ''}`} />
-                    ))}
-                </div>
-            </section>
+  /* ── Weekly Summary ── */
+  const [weeklyCalories, setWeeklyCalories] = useState(0);
+  useEffect(() => {
+    if (!mounted) return;
+    let total = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const key = getStorageKey('meals', d);
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        try {
+          const m = JSON.parse(stored);
+          total += [...(m.breakfast || []), ...(m.lunch || []), ...(m.dinner || [])].reduce((s: number, e: any) => s + (e.calories || 0), 0);
+        } catch { /* ignore */ }
+      }
+    }
+    setWeeklyCalories(total);
+  }, [mounted, today]);
 
-            {/* ═══ Date Carousel ═══ */}
-            <section className="date-carousel">
-                <button className="carousel-arrow" onClick={() => setDateOffset((o) => o - 7)} aria-label="Previous week">‹</button>
-                <div className="carousel-dates">
-                    {carouselDates.map((d, i) => {
-                        const isToday = isSameDay(d, today);
-                        const isSelected = isSameDay(d, selectedDate);
-                        return (
-                            <button
-                                key={i}
-                                className={`date-chip ${isToday ? 'date-today' : ''} ${isSelected ? 'date-selected' : ''}`}
-                                onClick={() => setSelectedDate(d)}
-                            >
-                                <span className="date-weekday">{d.toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                                <span className="date-day">{d.getDate()}</span>
-                            </button>
-                        );
-                    })}
-                </div>
-                <button className="carousel-arrow" onClick={() => setDateOffset((o) => o + 7)} aria-label="Next week">›</button>
-            </section>
+  /* ── Daily Progress Score ── */
+  const progressScore = useMemo(() => {
+    let score = 0;
+    if (totalCalories > 0) score += 25;
+    if (totalCalories >= calorieTarget * 0.8) score += 15;
+    if (waterGlasses >= waterTarget * 0.5) score += 20;
+    if (waterGlasses >= waterTarget) score += 15;
+    if (todaySleep >= 7) score += 25;
+    return Math.min(score, 100);
+  }, [totalCalories, waterGlasses, todaySleep]);
 
-            {/* ═══ Water & Calories Row ═══ */}
-            <div className="row-2col">
-                {/* Water Log */}
-                <section className="glass-card-static widget-home water-section">
-                    <h3 className="section-title">💧 Water Intake</h3>
-                    <div className="water-display">
-                        <div className="water-ring-wrap">
-                            <svg viewBox="0 0 100 100" className="water-ring">
-                                <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
-                                <circle
-                                    cx="50" cy="50" r="42" fill="none"
-                                    stroke="url(#waterGrad)"
-                                    strokeWidth="8"
-                                    strokeLinecap="round"
-                                    strokeDasharray={`${Math.min((waterGlasses / waterTarget) * 264, 264)} 264`}
-                                    transform="rotate(-90 50 50)"
-                                    style={{ transition: 'stroke-dasharray 0.6s ease-out' }}
-                                />
-                                <defs>
-                                    <linearGradient id="waterGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                        <stop offset="0%" stopColor="#60a5fa" />
-                                        <stop offset="100%" stopColor="#38bdf8" />
-                                    </linearGradient>
-                                </defs>
-                            </svg>
-                            <div className="water-ring-text">
-                                <span className="water-count">{waterGlasses}</span>
-                                <span className="water-unit">/ {waterTarget}</span>
-                            </div>
-                        </div>
-                        <span className="water-label">glasses</span>
-                    </div>
-                    <div className="water-actions">
-                        <button className="glass-btn glass-btn-sm water-btn" onClick={() => updateWater(1)}>+ 1 Glass</button>
-                        <button className="glass-btn glass-btn-sm water-btn water-btn-big" onClick={() => updateWater(16)}>+ 1 Gallon</button>
-                        <button className="glass-btn glass-btn-sm glass-btn-danger water-btn" onClick={() => { setWaterGlasses(0); localStorage.setItem(getStorageKey('water', today), '0'); }}>Reset</button>
-                    </div>
-                </section>
+  const getScoreColor = (s: number) => {
+    if (s >= 75) return '#4ade80';
+    if (s >= 50) return '#facc15';
+    return '#f87171';
+  };
 
-                {/* Calorie Summary */}
-                <section className="glass-card-static widget-home cal-section">
-                    <h3 className="section-title">🔥 Daily Calories</h3>
-                    <div className="cal-ring-wrap">
-                        <svg viewBox="0 0 100 100" className="cal-ring">
-                            <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
-                            <circle
-                                cx="50" cy="50" r="42" fill="none"
-                                stroke="url(#calGrad)"
-                                strokeWidth="8"
-                                strokeLinecap="round"
-                                strokeDasharray={`${Math.min((totalCalories / calorieTarget) * 264, 264)} 264`}
-                                transform="rotate(-90 50 50)"
-                                style={{ transition: 'stroke-dasharray 0.6s ease-out' }}
-                            />
-                            <defs>
-                                <linearGradient id="calGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                    <stop offset="0%" stopColor="#FBFF00" />
-                                    <stop offset="100%" stopColor="#e6eb00" />
-                                </linearGradient>
-                            </defs>
-                        </svg>
-                        <div className="cal-ring-text">
-                            <span className="cal-value">{totalCalories}</span>
-                            <span className="cal-target">/ {calorieTarget}</span>
-                        </div>
-                    </div>
-                    <div className="cal-metrics">
-                        <div className="cal-metric">
-                            <span className="cal-metric-val" style={{ color: '#60a5fa' }}>{meals.breakfast.length + meals.lunch.length + meals.dinner.length}</span>
-                            <span className="cal-metric-label">Meals</span>
-                        </div>
-                        <div className="cal-metric">
-                            <span className="cal-metric-val" style={{ color: '#4ade80' }}>{calorieTarget - totalCalories > 0 ? calorieTarget - totalCalories : 0}</span>
-                            <span className="cal-metric-label">Remaining</span>
-                        </div>
-                    </div>
-                </section>
-            </div>
+  const getScoreLabel = (s: number) => {
+    if (s >= 80) return 'Crushing It!';
+    if (s >= 60) return 'Good Progress';
+    if (s >= 40) return 'Keep Going';
+    return 'Just Getting Started';
+  };
 
-            {/* ═══ Meal Log ═══ */}
-            <section className="meal-log-section">
-                <div className="meal-log-header">
-                    <h3 className="section-title">🍽️ Meal Log</h3>
-                    <Link href="/dashboard/scanner" className="glass-btn glass-btn-sm glass-btn-primary scan-btn">
-                        📸 Scan Food
-                    </Link>
-                </div>
-
-                <div className="meal-slots">
-                    {(['breakfast', 'lunch', 'dinner'] as MealType[]).map((type) => {
-                        const icon = type === 'breakfast' ? '🌅' : type === 'lunch' ? '☀️' : '🌙';
-                        const label = type.charAt(0).toUpperCase() + type.slice(1);
-                        return (
-                            <div key={type} className="glass-card-static meal-slot">
-                                <div className="meal-slot-header">
-                                    <div className="meal-slot-title">
-                                        <span className="meal-slot-icon">{icon}</span>
-                                        <span>{label}</span>
-                                    </div>
-                                    <button
-                                        className="add-meal-btn"
-                                        onClick={() => {
-                                            setActiveMealForm(activeMealForm === type ? null : type);
-                                            setMealName('');
-                                            setMealCals('');
-                                        }}
-                                    >
-                                        {activeMealForm === type ? '✕' : '+'}
-                                    </button>
-                                </div>
-
-                                {/* Inline Add Form */}
-                                {activeMealForm === type && (
-                                    <div className="meal-form animate-fade-in-up">
-                                        <input
-                                            className="glass-input meal-input"
-                                            placeholder="Food name"
-                                            value={mealName}
-                                            onChange={(e) => setMealName(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && addMeal(type)}
-                                            autoFocus
-                                        />
-                                        <input
-                                            className="glass-input meal-input"
-                                            placeholder="Calories"
-                                            type="number"
-                                            value={mealCals}
-                                            onChange={(e) => setMealCals(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && addMeal(type)}
-                                        />
-                                        <button className="glass-btn glass-btn-sm glass-btn-primary" onClick={() => addMeal(type)}>
-                                            Add
-                                        </button>
-                                    </div>
-                                )}
-
-                                {/* Logged Meals */}
-                                {meals[type].length > 0 ? (
-                                    <div className="meal-entries">
-                                        {meals[type].map((m) => (
-                                            <div key={m.id} className="meal-entry">
-                                                <span className="meal-entry-name">{m.name}</span>
-                                                <div className="meal-entry-right">
-                                                    <span className="meal-entry-cal">{m.calories} cal</span>
-                                                    <button className="meal-entry-del" onClick={() => removeMeal(type, m.id)}>×</button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    !activeMealForm && (
-                                        <p className="meal-empty">No meals logged yet</p>
-                                    )
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            </section>
-
-            <style jsx>{`
-        .home-page {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-          animation: fadeInUp 0.5s ease-out;
-        }
-
-        /* ── Banner ── */
-        .banner {
-          padding: 32px 28px 24px;
-          text-align: center;
-          position: relative;
-          overflow: hidden;
-        }
-        .banner::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(135deg, rgba(251,255,0,0.06) 0%, transparent 60%);
-          pointer-events: none;
-        }
-        .banner-icon {
-          font-size: 2.4rem;
-          margin-bottom: 14px;
-        }
-        .banner-quote {
-          font-size: 1.15rem;
-          font-weight: 600;
-          line-height: 1.5;
-          color: var(--text-primary);
-          min-height: 56px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: opacity 0.4s ease;
-        }
-        .fade-in { opacity: 1; }
-        .fade-out { opacity: 0; }
-        .banner-dots {
-          display: flex;
-          justify-content: center;
-          gap: 6px;
-          margin-top: 18px;
-        }
-        .dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: rgba(255,255,255,0.15);
-          transition: all 0.3s ease;
-        }
-        .dot-active {
-          background: var(--accent);
-          box-shadow: 0 0 8px var(--accent-glow);
-          width: 18px;
-          border-radius: 3px;
-        }
-
-        /* ── Date Carousel ── */
-        .date-carousel {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .carousel-arrow {
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          border: 1px solid var(--glass-border);
-          background: var(--glass-bg);
-          color: var(--text-secondary);
-          font-size: 1.3rem;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.2s ease;
-          flex-shrink: 0;
-          font-family: var(--font-family);
-        }
-        .carousel-arrow:hover {
-          background: var(--glass-bg-hover);
-          border-color: var(--glass-border-hover);
-          color: var(--text-primary);
-        }
-        .carousel-dates {
-          display: flex;
-          gap: 6px;
-          flex: 1;
-          justify-content: center;
-          overflow: hidden;
-        }
-        .date-chip {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 4px;
-          padding: 10px 14px;
-          border-radius: var(--radius-sm);
-          border: 1px solid transparent;
-          background: var(--glass-bg);
-          cursor: pointer;
-          transition: all 0.2s ease;
-          flex: 1;
-          max-width: 72px;
-          font-family: var(--font-family);
-          color: var(--text-muted);
-        }
-        .date-chip:hover {
-          background: var(--glass-bg-hover);
-          color: var(--text-primary);
-        }
-        .date-today {
-          border-color: var(--accent-border);
-          background: var(--accent-bg);
-          color: var(--accent) !important;
-        }
-        .date-selected {
-          border-color: var(--accent);
-          box-shadow: 0 0 12px var(--accent-glow-subtle);
-        }
-        .date-weekday {
-          font-size: 0.65rem;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-        .date-day {
-          font-size: 1.15rem;
-          font-weight: 800;
-        }
-
-        /* ── Two-Column Row ── */
-        .row-2col {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-        }
-
-        .widget-home {
-          padding: 24px;
-        }
-
-        .section-title {
-          font-size: 0.85rem;
-          font-weight: 700;
-          color: #d4d4d8;
-          letter-spacing: 0.02em;
-          margin-bottom: 18px;
-        }
-
-        /* ── Water Section ── */
-        .water-display {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          margin-bottom: 18px;
-        }
-        .water-ring-wrap {
-          position: relative;
-          width: 120px;
-          height: 120px;
-        }
-        .water-ring {
-          width: 100%;
-          height: 100%;
-        }
-        .water-ring-text {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          text-align: center;
-          display: flex;
-          flex-direction: column;
-        }
-        .water-count {
-          font-size: 1.8rem;
-          font-weight: 800;
-          color: #60a5fa;
-          line-height: 1;
-        }
-        .water-unit {
-          font-size: 0.7rem;
-          color: var(--text-muted);
-          font-weight: 600;
-        }
-        .water-label {
-          font-size: 0.75rem;
-          color: var(--text-muted);
-          font-weight: 600;
-          margin-top: 4px;
-        }
-        .water-actions {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          justify-content: center;
-        }
-        .water-btn {
-          font-size: 0.8rem !important;
-          padding: 8px 14px !important;
-        }
-        .water-btn-big {
-          background: rgba(96,165,250,0.15) !important;
-          color: #60a5fa !important;
-          border-color: rgba(96,165,250,0.3) !important;
-        }
-        .water-btn-big:hover {
-          background: rgba(96,165,250,0.25) !important;
-        }
-
-        /* ── Calorie Summary ── */
-        .cal-ring-wrap {
-          position: relative;
-          width: 120px;
-          height: 120px;
-          margin: 0 auto 18px;
-        }
-        .cal-ring {
-          width: 100%;
-          height: 100%;
-        }
-        .cal-ring-text {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          text-align: center;
-          display: flex;
-          flex-direction: column;
-        }
-        .cal-value {
-          font-size: 1.8rem;
-          font-weight: 800;
-          color: var(--accent);
-          line-height: 1;
-        }
-        .cal-target {
-          font-size: 0.7rem;
-          color: var(--text-muted);
-          font-weight: 600;
-        }
-        .cal-metrics {
-          display: flex;
-          justify-content: center;
-          gap: 32px;
-        }
-        .cal-metric {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 2px;
-        }
-        .cal-metric-val {
-          font-size: 1.2rem;
-          font-weight: 800;
-        }
-        .cal-metric-label {
-          font-size: 0.7rem;
-          font-weight: 600;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-
-        /* ── Meal Log ── */
-        .meal-log-section {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-        .meal-log-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        .meal-log-header .section-title {
-          margin-bottom: 0;
-        }
-        .scan-btn {
-          font-size: 0.8rem !important;
-          padding: 8px 16px !important;
-        }
-        .meal-slots {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 14px;
-        }
-        .meal-slot {
-          padding: 18px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-        .meal-slot-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        .meal-slot-title {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-weight: 700;
-          font-size: 0.95rem;
-        }
-        .meal-slot-icon {
-          font-size: 1.3rem;
-        }
-        .add-meal-btn {
-          width: 30px;
-          height: 30px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 50%;
-          border: 1px solid var(--glass-border);
-          background: var(--glass-bg);
-          color: var(--text-secondary);
-          font-size: 1.1rem;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          font-family: var(--font-family);
-        }
-        .add-meal-btn:hover {
-          background: var(--accent-bg);
-          border-color: var(--accent-border);
-          color: var(--accent);
-        }
-
-
-        /* Meal Form */
-        .meal-form {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        .meal-input {
-          padding: 10px 12px !important;
-          font-size: 0.85rem !important;
-        }
-
-        /* Meal Entries */
-        .meal-entries {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-        .meal-entry {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 8px 12px;
-          background: rgba(255,255,255,0.03);
-          border-radius: var(--radius-xs);
-          border: 1px solid rgba(255,255,255,0.05);
-        }
-        .meal-entry-name {
-          font-size: 0.85rem;
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-        .meal-entry-right {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        .meal-entry-cal {
-          font-size: 0.8rem;
-          font-weight: 600;
-          color: var(--accent);
-        }
-        .meal-entry-del {
-          width: 22px;
-          height: 22px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: none;
-          background: rgba(248,113,113,0.1);
-          color: #f87171;
-          border-radius: 50%;
-          font-size: 0.9rem;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          font-family: var(--font-family);
-        }
-        .meal-entry-del:hover {
-          background: rgba(248,113,113,0.25);
-        }
-        .meal-empty {
-          font-size: 0.8rem;
-          color: var(--text-muted);
-          text-align: center;
-          padding: 10px 0;
-        }
-
-        /* ── Responsive ── */
-        @media (max-width: 1024px) {
-          .meal-slots {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        @media (max-width: 768px) {
-          .row-2col {
-            grid-template-columns: 1fr;
-          }
-          .meal-slots {
-            grid-template-columns: 1fr;
-          }
-          .banner-quote {
-            font-size: 1rem;
-          }
-          .date-chip {
-            padding: 8px 8px;
-          }
-        }
-      `}</style>
+  return (
+    <div className="home-page">
+      {/* ═══ Greeting Header ═══ */}
+      <div className="greeting-header-premium">
+        <div className="greeting-premium-text">
+          <h1>{greeting.text}!</h1>
+          <p>{greeting.tagline}</p>
         </div>
-    );
+        <div className="today-pill-premium">
+          {today.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+        </div>
+      </div>
+
+      {/* ═══ Motivational Banner ═══ */}
+      <section className="banner glass-card-premium">
+        <div className="banner-accent" />
+        <div className="banner-icon"><Icon name="dumbbell" size={32} /></div>
+        <p className={`banner-quote ${quoteFade ? 'fade-in' : 'fade-out'}`}>
+          &ldquo;{quotes[quoteIdx]}&rdquo;
+        </p>
+        <div className="banner-dots">
+          {quotes.map((_, i) => (
+            <span key={i} className={`dot ${i === quoteIdx ? 'dot-active' : ''}`} />
+          ))}
+        </div>
+      </section>
+
+      {/* ═══ Daily Progress Score ═══ */}
+      <section className="progress-section glass-card-premium">
+        <div className="progress-header">
+          <h3 className="section-title"><Icon name="chart" size={16} /> Daily Consistency</h3>
+          <span className="progress-label" style={{ color: getScoreColor(progressScore) }}>
+            {getScoreLabel(progressScore)}
+          </span>
+        </div>
+        <div className="progress-bar-wrap">
+          <div className="progress-bar">
+            <div
+              className="progress-fill"
+              style={{
+                width: `${progressScore}%`,
+                background: `linear-gradient(90deg, ${getScoreColor(progressScore)}aa, ${getScoreColor(progressScore)})`,
+                boxShadow: `0 0 15px ${getScoreColor(progressScore)}44`
+              }}
+            />
+          </div>
+          <span className="progress-percent">{progressScore}%</span>
+        </div>
+        <div className="progress-checklist">
+          <span className={`check-item ${totalCalories > 0 ? 'check-done' : ''}`}>
+            <Icon name={totalCalories > 0 ? 'checkCircle' : 'target'} size={14} /> Fuel Logged
+          </span>
+          <span className={`check-item ${waterGlasses >= waterTarget ? 'check-done' : ''}`}>
+            <Icon name={waterGlasses >= waterTarget ? 'checkCircle' : 'water'} size={14} /> Hydrated
+          </span>
+          <span className={`check-item ${todaySleep >= 7 ? 'check-done' : ''}`}>
+            <Icon name={todaySleep >= 7 ? 'checkCircle' : 'sleep'} size={14} /> 7h+ Sleep
+          </span>
+        </div>
+      </section>
+
+      {/* ═══ Date Carousel ═══ */}
+      <section className="date-carousel">
+        <button className="carousel-arrow" onClick={() => setDateOffset((o) => o - 7)}>‹</button>
+        <div className="carousel-dates">
+          {carouselDates.map((d, i) => {
+            const isToday = isSameDay(d, today);
+            const isSelected = isSameDay(d, selectedDate);
+            return (
+              <button
+                key={i}
+                className={`date-chip ${isToday ? 'date-today' : ''} ${isSelected ? 'date-selected' : ''}`}
+                onClick={() => setSelectedDate(d)}
+              >
+                <span className="date-weekday">{d.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                <span className="date-day">{d.getDate()}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button className="carousel-arrow" onClick={() => setDateOffset((o) => o + 7)}>›</button>
+      </section>
+
+      {/* ═══ Water & Calories Row ═══ */}
+      <div className="premium-widget-row">
+        {/* Water Log */}
+        <section className="glass-card-premium widget-glass">
+          <h3 className="widget-glass-title"><Icon name="water" size={18} /> Hydration</h3>
+          <div className="liquid-ring-container">
+            <svg viewBox="0 0 100 100" className="liquid-ring-svg">
+              <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="8" />
+              <circle
+                cx="50" cy="50" r="42" fill="none"
+                stroke="url(#waterRingGrad)"
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray={`${(waterGlasses / waterTarget) * 264} 264`}
+                transform="rotate(-90 50 50)"
+                style={{ transition: 'stroke-dasharray 1s cubic-bezier(0.16, 1, 0.3, 1)' }}
+              />
+              <defs>
+                <linearGradient id="waterRingGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#60a5fa" />
+                  <stop offset="100%" stopColor="#2dd4bf" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="liquid-ring-text">
+              <span className="ring-val">{waterGlasses}</span>
+              <span className="ring-label">of {waterTarget}</span>
+            </div>
+          </div>
+          <div className="water-actions" style={{ marginTop: '20px' }}>
+            <button className="glass-btn-premium" onClick={() => updateWater(1)}>+ Glass</button>
+            <button className="glass-btn-premium glass-btn-primary-glow" onClick={() => updateWater(14)}>+ Bottle</button>
+            <button className="glass-btn-premium" style={{ color: '#f87171' }} onClick={() => { setWaterGlasses(0); localStorage.setItem(getStorageKey('water', today), '0'); }}>Reset</button>
+          </div>
+        </section>
+
+        {/* Calorie Summary */}
+        <section className="glass-card-premium widget-glass">
+          <h3 className="widget-glass-title"><Icon name="fire" size={18} /> Fuel Center</h3>
+          <div className="liquid-ring-container">
+            <svg viewBox="0 0 100 100" className="liquid-ring-svg">
+              <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="8" />
+              <circle
+                cx="50" cy="50" r="42" fill="none"
+                stroke="url(#fuelRingGrad)"
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray={`${Math.min((totalCalories / calorieTarget) * 264, 264)} 264`}
+                transform="rotate(-90 50 50)"
+                style={{ transition: 'stroke-dasharray 1s cubic-bezier(0.16, 1, 0.3, 1)' }}
+              />
+              <defs>
+                <linearGradient id="fuelRingGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#FBFF00" />
+                  <stop offset="100%" stopColor="#f59e0b" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="liquid-ring-text">
+              <span className="ring-val">{totalCalories}</span>
+              <span className="ring-label">/ {calorieTarget}</span>
+            </div>
+          </div>
+          <div className="fuel-metrics-grid">
+            <div className="fuel-metric-pill">
+              <div className="fuel-icon-wrap"><Icon name="utensils" size={16} /></div>
+              <div className="fuel-text-group">
+                <span className="fuel-metric-val">{allMealEntries.length}</span>
+                <span className="fuel-metric-label">Meals</span>
+              </div>
+            </div>
+            <div className="fuel-metric-pill fuel-pill-remaining">
+              <div className="fuel-icon-wrap"><Icon name="fire" size={16} /></div>
+              <div className="fuel-text-group">
+                <span className="fuel-metric-val">{Math.max(0, calorieTarget - totalCalories)}</span>
+                <span className="fuel-metric-label">kcal Left</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* ═══ Quick Actions ═══ */}
+      <section className="actions-section">
+        <h3 className="widget-glass-title" style={{ paddingLeft: '8px' }}><Icon name="lightning" size={16} /> Power Actions</h3>
+        <div className="actions-premium-grid">
+          <Link href="/dashboard/scanner" className="glass-card-premium action-pill-premium">
+            <div className="action-icon-wrap" style={{ color: '#FBFF00' }}><Icon name="camera" size={24} /></div>
+            <span className="action-label-premium">Scan</span>
+          </Link>
+          <Link href="/dashboard/planner" className="glass-card-premium action-pill-premium">
+            <div className="action-icon-wrap" style={{ color: '#a855f7' }}><Icon name="brain" size={24} /></div>
+            <span className="action-label-premium">Plan</span>
+          </Link>
+          <Link href="/dashboard/sleep" className="glass-card-premium action-pill-premium">
+            <div className="action-icon-wrap" style={{ color: '#60a5fa' }}><Icon name="moon" size={24} /></div>
+            <span className="action-label-premium">Sleep</span>
+          </Link>
+          <Link href="/dashboard/habits" className="glass-card-premium action-pill-premium">
+            <div className="action-icon-wrap" style={{ color: '#4ade80' }}><Icon name="target" size={24} /></div>
+            <span className="action-label-premium">Habits</span>
+          </Link>
+        </div>
+      </section>
+
+      {/* ═══ Weekly Snapshot ═══ */}
+      <section className="glass-card-premium">
+        <h3 className="widget-glass-title" style={{ marginBottom: '10px' }}><Icon name="chart" size={16} /> Weekly Summary</h3>
+        <div className="weekly-snapshot-premium">
+          <div className="ws-item-premium">
+            <span className="ws-val-premium" style={{ color: '#FBFF00' }}>{weeklyCalories.toLocaleString()}</span>
+            <span className="ws-label-premium">Fuel Burned</span>
+          </div>
+          <div className="ws-item-premium">
+            <span className="ws-val-premium" style={{ color: '#60a5fa' }}>{todaySleep > 0 ? `${Math.floor(todaySleep)}h` : '–'}</span>
+            <span className="ws-label-premium">Sleep Avg</span>
+          </div>
+          <div className="ws-item-premium">
+            <span className="ws-val-premium" style={{ color: '#4ade80' }}>{Math.round(waterPercent)}%</span>
+            <span className="ws-label-premium">Hydration</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ Meal Log ═══ */}
+      <section className="meal-log-premium">
+        <div className="meal-log-header">
+          <h3 className="widget-glass-title"><Icon name="utensils" size={16} /> Daily Feed</h3>
+          <Link href="/dashboard/scanner" className="glass-btn-premium glass-btn-primary-glow">
+            <Icon name="plus" size={16} /> Add Custom
+          </Link>
+        </div>
+
+        <div className="meal-grid-refined">
+          {(['breakfast', 'lunch', 'dinner'] as MealType[]).map((type) => {
+            const mealIcon = type === 'breakfast' ? 'sunrise' as const : type === 'lunch' ? 'sun' as const : 'moon' as const;
+            const label = type.charAt(0).toUpperCase() + type.slice(1);
+            const typeCals = meals[type].reduce((s, m) => s + m.calories, 0);
+            return (
+              <div
+                key={type}
+                className="glass-card-premium meal-slot-premium"
+                onClick={() => setActiveMealForm(activeMealForm === type ? null : type)}
+              >
+                <div className="meal-slot-header">
+                  <div className="meal-info-side">
+                    <div className="meal-type-badge"><Icon name={mealIcon} size={20} /></div>
+                    <div className="meal-name-group">
+                      <h4>{label}</h4>
+                      <div className="meal-stats-inline">{meals[type].length} items • {typeCals} kcal</div>
+                    </div>
+                  </div>
+                  <Icon name="chevronRight" className="meal-expand-icon" size={18} />
+                </div>
+
+                {activeMealForm === type && (
+                  <div className="meal-expand-content" onClick={e => e.stopPropagation()} style={{ marginTop: '20px' }}>
+                    <div className="meal-form-liquid">
+                      <input
+                        className="glass-input"
+                        placeholder="What was the dish?"
+                        value={mealName}
+                        onChange={(e) => setMealName(e.target.value)}
+                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px', color: '#fff' }}
+                      />
+                      <input
+                        className="glass-input"
+                        placeholder="kcal"
+                        type="number"
+                        value={mealCals}
+                        onChange={(e) => setMealCals(e.target.value)}
+                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '12px', color: '#fff', width: '100px' }}
+                      />
+                      <button className="glass-btn-premium glass-btn-primary-glow" onClick={() => addMeal(type)}>Log</button>
+                    </div>
+                    {meals[type].length > 0 && (
+                      <div className="meal-entry-list" style={{ marginTop: '16px' }}>
+                        {meals[type].map(m => (
+                          <div key={m.id} className="meal-item-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                            <span style={{ fontSize: '0.9rem' }}>{m.name}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span style={{ fontWeight: '700', fontSize: '0.85rem' }}>{m.calories}</span>
+                              <button onClick={() => removeMeal(type, m.id)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer' }}>×</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
 }

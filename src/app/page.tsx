@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { Icon } from '@/components/ui/Icons';
 
 export default function HomePage() {
   const [mounted, setMounted] = useState(false);
@@ -27,7 +28,7 @@ export default function HomePage() {
 
       <main className="landing-hero">
         <div className={`hero-content ${mounted ? 'animate-fade-in-up' : ''}`}>
-          <div className="hero-badge">✨ AI-Powered Fitness</div>
+          <div className="hero-badge"><Icon name="sparkles" size={14} /> AI-Powered Fitness</div>
           <h1 className="hero-title">
             Your Health,<br />
             <span className="hero-accent">Reimagined.</span>
@@ -38,7 +39,7 @@ export default function HomePage() {
           </p>
           <div className="hero-actions">
             <Link href="/signup" className="glass-btn glass-btn-primary glass-btn-lg">
-              🚀 Start Your Journey
+              <Icon name="rocket" size={18} /> Start Your Journey
             </Link>
             <button
               className="glass-btn glass-btn-lg"
@@ -47,20 +48,20 @@ export default function HomePage() {
                 window.location.href = '/onboarding';
               }}
             >
-              👀 Try as Guest
+              <Icon name="eye" size={18} /> Try as Guest
             </button>
           </div>
         </div>
 
         <div className={`hero-features ${mounted ? 'animate-fade-in-up' : ''}`} style={{ animationDelay: '0.2s' }}>
           {[
-            { icon: '📸', title: 'Food Scanner', desc: 'Scan any meal, get instant macros' },
-            { icon: '🧠', title: 'AI Plans', desc: 'Custom diet & workout schedules' },
-            { icon: '👨‍⚕️', title: 'Find Pros', desc: 'Nearby nutritionists & trainers' },
-            { icon: '🔥', title: 'Track Streaks', desc: 'Stay consistent, stay motivated' },
+            { icon: 'camera' as const, title: 'Food Scanner', desc: 'Scan any meal, get instant macros' },
+            { icon: 'brain' as const, title: 'AI Plans', desc: 'Custom diet & workout schedules' },
+            { icon: 'doctor' as const, title: 'Find Pros', desc: 'Nearby nutritionists & trainers' },
+            { icon: 'fire' as const, title: 'Track Streaks', desc: 'Stay consistent, stay motivated' },
           ].map((feat) => (
             <div key={feat.title} className="feature-card">
-              <span className="feature-icon">{feat.icon}</span>
+              <span className="feature-icon"><Icon name={feat.icon} size={32} /></span>
               <h3 className="feature-title">{feat.title}</h3>
               <p className="feature-desc">{feat.desc}</p>
             </div>

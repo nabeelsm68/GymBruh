@@ -3,56 +3,66 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { Icon } from '@/components/ui/Icons';
+
+const stepIcons = ['wave', 'clipboard', 'target', 'runner', 'utensils', 'stethoscope', 'moon', 'masks'] as const;
 
 const steps = [
-  { id: 'welcome', title: '👋 Vibe Check', subtitle: 'Let\'s get to know you — the REAL you.' },
-  { id: 'basics', title: '📋 The Basics', subtitle: 'Quick stats so we can personalize everything.' },
-  { id: 'goals', title: '🎯 Your Goal', subtitle: 'What\'s the dream? Pick your vibe.' },
-  { id: 'activity', title: '🏃 Activity Level', subtitle: 'How much do you already move?' },
-  { id: 'diet', title: '🍽️ Food Preferences', subtitle: 'Tell us what you eat (and what you DON\'T).' },
-  { id: 'health', title: '🩺 Health Intel', subtitle: 'Any allergies, injuries, or conditions we should know?' },
-  { id: 'lifestyle', title: '🌙 Lifestyle', subtitle: 'Sleep, stress, hydration — the underrated stuff.' },
-  { id: 'personality', title: '🎭 Your Vibe', subtitle: 'Should we be your strict coach or your chill buddy?' },
+  { id: 'welcome', title: 'Vibe Check', subtitle: 'Let\'s get to know you — the REAL you.' },
+  { id: 'basics', title: 'The Basics', subtitle: 'Quick stats so we can personalize everything.' },
+  { id: 'goals', title: 'Your Goal', subtitle: 'What\'s the dream? Pick your vibe.' },
+  { id: 'activity', title: 'Activity Level', subtitle: 'How much do you already move?' },
+  { id: 'diet', title: 'Food Preferences', subtitle: 'Tell us what you eat (and what you DON\'T).' },
+  { id: 'health', title: 'Health Intel', subtitle: 'Any allergies, injuries, or conditions we should know?' },
+  { id: 'lifestyle', title: 'Lifestyle', subtitle: 'Sleep, stress, hydration — the underrated stuff.' },
+  { id: 'personality', title: 'Your Vibe', subtitle: 'Should we be your strict coach or your chill buddy?' },
 ];
 
 const goalOptions = [
-  { value: 'lose_weight', label: '🔥 Lose Weight', desc: 'Burn fat, feel lighter' },
-  { value: 'build_muscle', label: '💪 Build Muscle', desc: 'Get stronger & bigger' },
-  { value: 'maintain', label: '⚖️ Maintain', desc: 'Stay where I am' },
-  { value: 'general_fitness', label: '🏆 General Fitness', desc: 'Just be healthy & fit' },
-  { value: 'endurance', label: '🏃 Endurance', desc: 'Run farther, last longer' },
-  { value: 'flexibility', label: '🧘 Flexibility', desc: 'Stretch & recover better' },
+  { value: 'lose_weight', icon: 'fire' as const, label: 'Lose Weight', desc: 'Burn fat, feel lighter' },
+  { value: 'build_muscle', icon: 'muscle' as const, label: 'Build Muscle', desc: 'Get stronger & bigger' },
+  { value: 'maintain', icon: 'scale' as const, label: 'Maintain', desc: 'Stay where I am' },
+  { value: 'general_fitness', icon: 'trophy' as const, label: 'General Fitness', desc: 'Just be healthy & fit' },
+  { value: 'endurance', icon: 'runner' as const, label: 'Endurance', desc: 'Run farther, last longer' },
+  { value: 'flexibility', icon: 'flexibility' as const, label: 'Flexibility', desc: 'Stretch & recover better' },
 ];
 
 const activityLevels = [
-  { value: 1, label: '🛋️ Couch Potato', desc: 'Desk job, minimal movement' },
-  { value: 2, label: '🚶 Casual Walker', desc: 'Light activity 1-2x/week' },
-  { value: 3, label: '🏋️ Moderately Active', desc: '3-4 workouts/week' },
-  { value: 4, label: '⚡ Very Active', desc: '5-6 intense sessions/week' },
-  { value: 5, label: '🔥 Athlete Level', desc: 'Daily intense training' },
+  { value: 1, icon: 'couch' as const, label: 'Couch Potato', desc: 'Desk job, minimal movement' },
+  { value: 2, icon: 'walk' as const, label: 'Casual Walker', desc: 'Light activity 1-2x/week' },
+  { value: 3, icon: 'dumbbell' as const, label: 'Moderately Active', desc: '3-4 workouts/week' },
+  { value: 4, icon: 'lightning' as const, label: 'Very Active', desc: '5-6 intense sessions/week' },
+  { value: 5, icon: 'fire' as const, label: 'Athlete Level', desc: 'Daily intense training' },
 ];
 
 const dietOptions = [
-  { value: 'no_preference', label: '🍴 No Preference', color: '#4ECDC4' },
-  { value: 'vegetarian', label: '🥬 Vegetarian', color: '#48BB78' },
-  { value: 'vegan', label: '🌱 Vegan', color: '#38A169' },
-  { value: 'non_veg', label: '🥩 Non-Veg', color: '#FF6B6B' },
-  { value: 'keto', label: '🥑 Keto', color: '#FFC857' },
-  { value: 'paleo', label: '🦴 Paleo', color: '#FF8E53' },
-  { value: 'mediterranean', label: '🫒 Mediterranean', color: '#45B7D1' },
+  { value: 'no_preference', icon: 'fork' as const, label: 'No Preference', color: '#4ECDC4' },
+  { value: 'vegetarian', icon: 'leafy' as const, label: 'Vegetarian', color: '#48BB78' },
+  { value: 'vegan', icon: 'plant' as const, label: 'Vegan', color: '#38A169' },
+  { value: 'non_veg', icon: 'meat' as const, label: 'Non-Veg', color: '#FF6B6B' },
+  { value: 'keto', icon: 'avocado' as const, label: 'Keto', color: '#FFC857' },
+  { value: 'paleo', icon: 'bone' as const, label: 'Paleo', color: '#FF8E53' },
+  { value: 'mediterranean', icon: 'olive' as const, label: 'Mediterranean', color: '#45B7D1' },
 ];
 
-const commonAllergies = [
-  '🥜 Peanuts', '🌰 Tree Nuts', '🥛 Dairy', '🌾 Gluten',
-  '🥚 Eggs', '🐟 Fish', '🦐 Shellfish', '🫘 Soy',
-  '🍯 Sesame', '🌽 Corn',
+const allergyItems = [
+  { icon: 'peanut' as const, label: 'Peanuts' },
+  { icon: 'nut' as const, label: 'Tree Nuts' },
+  { icon: 'milk' as const, label: 'Dairy' },
+  { icon: 'wheat' as const, label: 'Gluten' },
+  { icon: 'egg' as const, label: 'Eggs' },
+  { icon: 'fish' as const, label: 'Fish' },
+  { icon: 'shrimp' as const, label: 'Shellfish' },
+  { icon: 'bean' as const, label: 'Soy' },
+  { icon: 'honey' as const, label: 'Sesame' },
+  { icon: 'corn' as const, label: 'Corn' },
 ];
 
 const vibeOptions = [
-  { value: 'strict', label: '🎖️ Drill Sergeant', desc: 'No excuses. Push me hard.' },
-  { value: 'balanced', label: '🤝 Balanced Coach', desc: 'Firm but fair. Keep me accountable.' },
-  { value: 'chill', label: '😎 Chill Buddy', desc: 'Laid back. Celebrate small wins.' },
-  { value: 'hype', label: '🔥 Hype Beast', desc: 'All energy! Every rep is a victory!' },
+  { value: 'strict', iconKey: 'medal' as const, label: 'Drill Sergeant', desc: 'No excuses. Push me hard.' },
+  { value: 'balanced', iconKey: 'handshake' as const, label: 'Balanced Coach', desc: 'Firm but fair. Keep me accountable.' },
+  { value: 'chill', iconKey: 'sunglasses' as const, label: 'Chill Buddy', desc: 'Laid back. Celebrate small wins.' },
+  { value: 'hype', iconKey: 'fire' as const, label: 'Hype Beast', desc: 'All energy! Every rep is a victory!' },
 ];
 
 export default function OnboardingPage() {
@@ -173,7 +183,7 @@ export default function OnboardingPage() {
 
       {/* Step Header */}
       <div className="step-header" key={step}>
-        <h1 className="step-title">{steps[step].title}</h1>
+        <h1 className="step-title"><Icon name={stepIcons[step]} size={24} /> {steps[step].title}</h1>
         <p className="step-subtitle">{steps[step].subtitle}</p>
       </div>
 
@@ -181,7 +191,7 @@ export default function OnboardingPage() {
       <div className="step-content glass-card-static" key={`content-${step}`}>
         {step === 0 && (
           <div className="welcome-step">
-            <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🏋️‍♂️</div>
+            <div style={{ fontSize: '4rem', marginBottom: '20px' }}><Icon name="dumbbell" size={64} /></div>
             <h2>Hey there, future legend!</h2>
             <p>
               We&apos;re about to ask you a few questions — not the boring generic ones.
@@ -190,7 +200,7 @@ export default function OnboardingPage() {
               that actually fits YOUR life.
             </p>
             <p style={{ color: 'var(--color-success)', fontWeight: 600, marginTop: '12px' }}>
-              🔒 Everything stays private. Your data, your rules.
+              <Icon name="lock" size={16} /> Everything stays private. Your data, your rules.
             </p>
           </div>
         )}
@@ -265,8 +275,8 @@ export default function OnboardingPage() {
                 className={`option-card glass-card ${formData.goal === opt.value ? 'option-selected' : ''}`}
                 onClick={() => updateField('goal', opt.value)}
               >
-                <span className="option-icon">{opt.label.split(' ')[0]}</span>
-                <span className="option-label">{opt.label.split(' ').slice(1).join(' ')}</span>
+                <span className="option-icon"><Icon name={opt.icon} size={28} /></span>
+                <span className="option-label">{opt.label}</span>
                 <span className="option-desc">{opt.desc}</span>
               </button>
             ))}
@@ -281,9 +291,9 @@ export default function OnboardingPage() {
                 className={`activity-card glass-card ${formData.activity_level === level.value ? 'option-selected' : ''}`}
                 onClick={() => updateField('activity_level', level.value)}
               >
-                <span className="activity-icon">{level.label.split(' ')[0]}</span>
+                <span className="activity-icon"><Icon name={level.icon} size={24} /></span>
                 <div>
-                  <span className="activity-label">{level.label.split(' ').slice(1).join(' ')}</span>
+                  <span className="activity-label">{level.label}</span>
                   <span className="activity-desc">{level.desc}</span>
                 </div>
               </button>
@@ -300,7 +310,7 @@ export default function OnboardingPage() {
                 onClick={() => updateField('diet_preference', opt.value)}
                 style={{ '--accent-color': opt.color } as React.CSSProperties}
               >
-                <span className="diet-label">{opt.label}</span>
+                <span className="diet-label"><Icon name={opt.icon} size={18} /> {opt.label}</span>
               </button>
             ))}
           </div>
@@ -309,21 +319,21 @@ export default function OnboardingPage() {
         {step === 5 && (
           <div className="health-step">
             <div className="form-group" style={{ marginBottom: '24px' }}>
-              <label className="form-label">🥜 Any food allergies? (tap all that apply)</label>
+              <label className="form-label"><Icon name="peanut" size={16} /> Any food allergies? (tap all that apply)</label>
               <div className="allergy-grid">
-                {commonAllergies.map((allergy) => (
+                {allergyItems.map((item) => (
                   <button
-                    key={allergy}
-                    className={`allergy-chip ${formData.allergies.includes(allergy) ? 'allergy-selected' : ''}`}
-                    onClick={() => toggleAllergy(allergy)}
+                    key={item.label}
+                    className={`allergy-chip ${formData.allergies.includes(item.label) ? 'allergy-selected' : ''}`}
+                    onClick={() => toggleAllergy(item.label)}
                   >
-                    {allergy}
+                    <Icon name={item.icon} size={16} /> {item.label}
                   </button>
                 ))}
               </div>
             </div>
             <div className="form-group" style={{ marginBottom: '18px' }}>
-              <label className="form-label">🤕 Any injuries or physical limitations?</label>
+              <label className="form-label"><Icon name="bandage" size={16} /> Any injuries or physical limitations?</label>
               <input
                 className="glass-input"
                 placeholder="e.g., Bad knee, lower back issues, shoulder surgery..."
@@ -332,7 +342,7 @@ export default function OnboardingPage() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">💊 Any medical conditions we should consider?</label>
+              <label className="form-label"><Icon name="pill" size={16} /> Any medical conditions we should consider?</label>
               <input
                 className="glass-input"
                 placeholder="e.g., Diabetes, PCOS, thyroid, asthma..."
@@ -346,7 +356,7 @@ export default function OnboardingPage() {
         {step === 6 && (
           <div className="lifestyle-step">
             <div className="form-group" style={{ marginBottom: '24px' }}>
-              <label className="form-label">😴 How many hours do you sleep?</label>
+              <label className="form-label"><Icon name="sleep" size={16} /> How many hours do you sleep?</label>
               <div className="sleep-slider">
                 <input
                   type="range"
@@ -360,45 +370,45 @@ export default function OnboardingPage() {
                 <span className="sleep-value">{formData.sleep_hours}h</span>
               </div>
               <div className="sleep-verdict">
-                {parseFloat(formData.sleep_hours) < 6 ? '😵 Way too low, let\'s fix that' :
-                  parseFloat(formData.sleep_hours) < 7 ? '😐 Could be better' :
-                    parseFloat(formData.sleep_hours) <= 9 ? '😊 Sweet spot!' : '😴 That\'s a lot of Zzzs'}
+                {parseFloat(formData.sleep_hours) < 6 ? <><Icon name="tired" size={16} /> Way too low, let&apos;s fix that</> :
+                  parseFloat(formData.sleep_hours) < 7 ? <><Icon name="neutral" size={16} /> Could be better</> :
+                    parseFloat(formData.sleep_hours) <= 9 ? <><Icon name="happy" size={16} /> Sweet spot!</> : <><Icon name="sleep" size={16} /> That&apos;s a lot of Zzzs</>}
               </div>
             </div>
             <div className="form-group" style={{ marginBottom: '24px' }}>
-              <label className="form-label">😰 Stress level?</label>
+              <label className="form-label"><Icon name="stressed" size={16} /> Stress level?</label>
               <div className="stress-options">
                 {[
-                  { v: 'low', l: '😌 Low' },
-                  { v: 'moderate', l: '😐 Moderate' },
-                  { v: 'high', l: '😤 High' },
-                  { v: 'extreme', l: '🤯 Extreme' },
+                  { v: 'low', icon: 'calm' as const, l: 'Low' },
+                  { v: 'moderate', icon: 'neutral' as const, l: 'Moderate' },
+                  { v: 'high', icon: 'angry' as const, l: 'High' },
+                  { v: 'extreme', icon: 'exploding' as const, l: 'Extreme' },
                 ].map((opt) => (
                   <button
                     key={opt.v}
                     className={`stress-chip ${formData.stress_level === opt.v ? 'stress-selected' : ''}`}
                     onClick={() => updateField('stress_level', opt.v)}
                   >
-                    {opt.l}
+                    <Icon name={opt.icon} size={16} /> {opt.l}
                   </button>
                 ))}
               </div>
             </div>
             <div className="form-group">
-              <label className="form-label">💧 How much water do you drink?</label>
+              <label className="form-label"><Icon name="water" size={16} /> How much water do you drink?</label>
               <div className="stress-options">
                 {[
-                  { v: 'low', l: '🏜️ Barely any' },
-                  { v: 'moderate', l: '💧 Some' },
-                  { v: 'good', l: '🚰 Good amount' },
-                  { v: 'gallon', l: '🌊 A gallon+' },
+                  { v: 'low', icon: 'desert' as const, l: 'Barely any' },
+                  { v: 'moderate', icon: 'water' as const, l: 'Some' },
+                  { v: 'good', icon: 'faucet' as const, l: 'Good amount' },
+                  { v: 'gallon', icon: 'waves' as const, l: 'A gallon+' },
                 ].map((opt) => (
                   <button
                     key={opt.v}
                     className={`stress-chip ${formData.water_intake === opt.v ? 'stress-selected' : ''}`}
                     onClick={() => updateField('water_intake', opt.v)}
                   >
-                    {opt.l}
+                    <Icon name={opt.icon} size={16} /> {opt.l}
                   </button>
                 ))}
               </div>
@@ -414,8 +424,8 @@ export default function OnboardingPage() {
                 className={`vibe-card glass-card ${formData.vibe === opt.value ? 'option-selected' : ''}`}
                 onClick={() => updateField('vibe', opt.value)}
               >
-                <span className="vibe-icon">{opt.label.split(' ')[0]}</span>
-                <span className="vibe-label">{opt.label.split(' ').slice(1).join(' ')}</span>
+                <span className="vibe-icon"><Icon name={opt.iconKey} size={28} /></span>
+                <span className="vibe-label">{opt.label}</span>
                 <span className="vibe-desc">{opt.desc}</span>
               </button>
             ))}
@@ -436,7 +446,7 @@ export default function OnboardingPage() {
           onClick={nextStep}
           disabled={loading}
         >
-          {loading ? '⏳ Saving...' : step === steps.length - 1 ? '🚀 Let\'s Go!' : 'Next →'}
+          {loading ? <><Icon name="hourglass" size={16} /> Saving...</> : step === steps.length - 1 ? <><Icon name="rocket" size={16} /> Let&apos;s Go!</> : 'Next →'}
         </button>
       </div>
 
