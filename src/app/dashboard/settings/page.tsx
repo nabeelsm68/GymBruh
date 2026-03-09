@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import './settings.css';
 import Icon from '@/components/ui/Icons';
+import { createClient } from '@/lib/supabase/client';
+import { initUserId, userKey } from '@/lib/user-storage';
 
 type Badge = {
     id: string;
@@ -11,6 +13,15 @@ type Badge = {
     unlocked: boolean;
     description: string;
 };
+
+const BADGE_DEFS = [
+    { id: '1', name: 'Early Riser', icon: 'zap', description: 'Log a workout before 6 AM' },
+    { id: '2', name: 'Hydration Hero', icon: 'droplets', description: 'Hit water goal 7 days in a row' },
+    { id: '3', name: 'Food Sniper', icon: 'camera', description: 'Scan 50 meals' },
+    { id: '4', name: 'Sleep King', icon: 'moon', description: 'Get 8+ hours for a full month' },
+    { id: '5', name: 'Pro Booker', icon: 'users', description: 'Book 3 nutritionist consultations' },
+    { id: '6', name: 'Iron Will', icon: 'activity', description: 'Complete an advanced workout plan' },
+];
 
 export default function SettingsPage() {
     const [profile, setProfile] = useState({
@@ -33,16 +44,85 @@ export default function SettingsPage() {
         theme: 'dark'
     });
 
-    const [badges] = useState<Badge[]>([
-        { id: '1', name: 'Early Riser', icon: 'zap', unlocked: true, description: 'Log a workout before 6 AM' },
-        { id: '2', name: 'Hydration Hero', icon: 'droplets', unlocked: true, description: 'Hit water goal 7 days in a row' },
-        { id: '3', name: 'Food Sniper', icon: 'camera', unlocked: true, description: 'Scan 50 meals' },
-        { id: '4', name: 'Sleep King', icon: 'moon', unlocked: false, description: 'Get 8+ hours for a full month' },
-        { id: '5', name: 'Pro Booker', icon: 'users', unlocked: false, description: 'Book 3 nutritionist consultations' },
-        { id: '6', name: 'Iron Will', icon: 'activity', unlocked: false, description: 'Complete an advanced workout plan' },
-    ]);
+    const [badges, setBadges] = useState<Badge[]>(
+        BADGE_DEFS.map(b => ({ ...b, unlocked: false }))
+    );
 
     const [isSaving, setIsSaving] = useState(false);
+    const [ready, setReady] = useState(false);
+
+    /* ── Load user profile and compute badges ── */
+    useEffect(() => {
+        initUserId().then(async () => {
+            // Load profile
+            const isGuest = document.cookie.includes('gymbruh-guest=true');
+            if (isGuest) {
+                const stored = localStorage.getItem('gymbruh-guest-profile');
+                if (stored) {
+                    try {
+                        const p = JSON.parse(stored);
+                        setProfile({ name: p.name || 'Guest User', email: 'guest@gymbruh.ai', bio: 'Fitness enthusiast' });
+                    } catch { /* ignore */ }
+                }
+            } else {
+                try {
+                    const supabase = createClient();
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+                        if (data) {
+                            setProfile({
+                                name: data.name || user.email?.split('@')[0] || 'User',
+                                email: user.email || '',
+                                bio: data.bio || 'Fitness enthusiast'
+                            });
+                        }
+                    }
+                } catch { /* ignore */ }
+            }
+
+            // Compute badges dynamically from user data
+            const computed = BADGE_DEFS.map(b => {
+                let unlocked = false;
+                try {
+                    if (b.id === '2') {
+                        // Hydration Hero: 7 consecutive days with water >= 8
+                        let streak = 0;
+                        for (let i = 0; i < 30 && streak < 7; i++) {
+                            const d = new Date(); d.setDate(d.getDate() - i);
+                            const key = userKey(`water-${d.toISOString().split('T')[0]}`);
+                            const val = parseInt(localStorage.getItem(key) || '0', 10);
+                            if (val >= 8) streak++;
+                            else streak = 0;
+                        }
+                        unlocked = streak >= 7;
+                    } else if (b.id === '3') {
+                        // Food Sniper: 50+ scans
+                        const hist = localStorage.getItem(userKey('scan-history'));
+                        if (hist) {
+                            const arr = JSON.parse(hist);
+                            unlocked = Array.isArray(arr) && arr.length >= 50;
+                        }
+                    } else if (b.id === '4') {
+                        // Sleep King: 30 consecutive days >= 8h
+                        let streak = 0;
+                        for (let i = 0; i < 60 && streak < 30; i++) {
+                            const d = new Date(); d.setDate(d.getDate() - i);
+                            const key = userKey(`sleep-${d.toISOString().split('T')[0]}`);
+                            const val = parseFloat(localStorage.getItem(key) || '0');
+                            if (val >= 8) streak++;
+                            else streak = 0;
+                        }
+                        unlocked = streak >= 30;
+                    }
+                    // id 1 (Early Riser), 5 (Pro Booker), 6 (Iron Will) remain locked — no tracking yet
+                } catch { /* ignore */ }
+                return { ...b, unlocked };
+            });
+            setBadges(computed);
+            setReady(true);
+        });
+    }, []);
 
     const handleSave = () => {
         setIsSaving(true);

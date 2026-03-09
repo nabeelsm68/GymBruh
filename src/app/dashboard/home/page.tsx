@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icons';
+import { initUserId, userKey } from '@/lib/user-storage';
 import './home.css';
 
 /* ── Motivational Quotes ── */
@@ -19,7 +20,7 @@ const quotes = [
 
 /* ── Helpers ── */
 function getStorageKey(prefix: string, date: Date) {
-  return `gymbruh-${prefix}-${date.toISOString().split('T')[0]}`;
+  return userKey(`${prefix}-${date.toISOString().split('T')[0]}`);
 }
 
 function isSameDay(a: Date, b: Date) {
@@ -52,8 +53,10 @@ export default function HomePage() {
   });
 
   useEffect(() => {
-    setMounted(true);
-    setGreeting(getTimeGreeting());
+    initUserId().then(() => {
+      setMounted(true);
+      setGreeting(getTimeGreeting());
+    });
   }, []);
 
   /* ── Quote Rotation ── */
@@ -153,7 +156,7 @@ export default function HomePage() {
   const [todaySleep, setTodaySleep] = useState(0);
   useEffect(() => {
     if (!mounted) return;
-    const key = `gymbruh-sleep-${today.toISOString().split('T')[0]}`;
+    const key = userKey(`sleep-${today.toISOString().split('T')[0]}`);
     const val = localStorage.getItem(key);
     if (val) setTodaySleep(parseFloat(val));
   }, [mounted, today]);

@@ -3,440 +3,443 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Icon } from '@/components/ui/Icons';
+import { initUserId, userKey } from '@/lib/user-storage';
 
 interface Meal {
-    type: string;
-    name: string;
-    calories: number;
-    protein: number;
-    carbs: number;
-    fats: number;
-    ingredients: string[];
+  type: string;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  ingredients: string[];
 }
 
 interface DietDay {
-    day: string;
-    meals: Meal[];
+  day: string;
+  meals: Meal[];
 }
 
 interface Exercise {
-    name: string;
-    sets: number;
-    reps: string;
-    duration_min: number | null;
-    notes: string | null;
+  name: string;
+  sets: number;
+  reps: string;
+  duration_min: number | null;
+  notes: string | null;
 }
 
 interface WorkoutDay {
-    day: string;
-    focus: string;
-    exercises: Exercise[];
-    rest_note: string | null;
+  day: string;
+  focus: string;
+  exercises: Exercise[];
+  rest_note: string | null;
 }
 
 interface DietPlan {
-    plan_name: string;
-    daily_calories: number;
-    description: string;
-    days: DietDay[];
+  plan_name: string;
+  daily_calories: number;
+  description: string;
+  days: DietDay[];
 }
 
 interface WorkoutPlan {
-    plan_name: string;
-    description: string;
-    days: WorkoutDay[];
+  plan_name: string;
+  description: string;
+  days: WorkoutDay[];
 }
 
 /* ── Feature cards for empty state ── */
 const dietFeatures = [
-    { icon: 'target' as const, title: 'Calorie-Optimized', desc: 'Matched to your exact goals and body stats' },
-    { icon: 'leaf' as const, title: 'Diet Aware', desc: 'Respects vegan, keto, paleo, and more' },
-    { icon: 'warning' as const, title: 'Allergy Safe', desc: 'Strictly avoids your listed allergens' },
-    { icon: 'sparkles' as const, title: 'AI Personalized', desc: 'Learns from your preferences and vibe' },
+  { icon: 'target' as const, title: 'Calorie-Optimized', desc: 'Matched to your exact goals and body stats' },
+  { icon: 'leaf' as const, title: 'Diet Aware', desc: 'Respects vegan, keto, paleo, and more' },
+  { icon: 'warning' as const, title: 'Allergy Safe', desc: 'Strictly avoids your listed allergens' },
+  { icon: 'sparkles' as const, title: 'AI Personalized', desc: 'Learns from your preferences and vibe' },
 ];
 
 const workoutFeatures = [
-    { icon: 'muscle' as const, title: 'Goal-Driven', desc: 'Exercises chosen for your specific goal' },
-    { icon: 'bandage' as const, title: 'Injury Aware', desc: 'Avoids movements that could aggravate injuries' },
-    { icon: 'lightning' as const, title: 'Progressive', desc: 'Balanced intensity across the week' },
-    { icon: 'brain' as const, title: 'Smart Recovery', desc: 'Strategic rest days for optimal gains' },
+  { icon: 'muscle' as const, title: 'Goal-Driven', desc: 'Exercises chosen for your specific goal' },
+  { icon: 'bandage' as const, title: 'Injury Aware', desc: 'Avoids movements that could aggravate injuries' },
+  { icon: 'lightning' as const, title: 'Progressive', desc: 'Balanced intensity across the week' },
+  { icon: 'brain' as const, title: 'Smart Recovery', desc: 'Strategic rest days for optimal gains' },
 ];
 
 const motivationalQuotes = [
-    "The only bad workout is the one that didn't happen.",
-    "Your plan is loading. Your results are coming.",
-    "Consistency beats perfection, every single time.",
-    "A goal without a plan is just a wish.",
-    "Small daily improvements lead to stunning results.",
+  "The only bad workout is the one that didn't happen.",
+  "Your plan is loading. Your results are coming.",
+  "Consistency beats perfection, every single time.",
+  "A goal without a plan is just a wish.",
+  "Small daily improvements lead to stunning results.",
 ];
 
 export default function PlannerPage() {
-    const [activeTab, setActiveTab] = useState<'diet' | 'workout'>('diet');
-    const [dietPlan, setDietPlan] = useState<DietPlan | null>(null);
-    const [workoutPlan, setWorkoutPlan] = useState<WorkoutPlan | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
-    const [expandedDay, setExpandedDay] = useState<number | null>(0);
-    const [quoteIdx, setQuoteIdx] = useState(0);
-    const [quoteFade, setQuoteFade] = useState(true);
-    const [generationCount, setGenerationCount] = useState(0);
+  const [activeTab, setActiveTab] = useState<'diet' | 'workout'>('diet');
+  const [dietPlan, setDietPlan] = useState<DietPlan | null>(null);
+  const [workoutPlan, setWorkoutPlan] = useState<WorkoutPlan | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
+  const [expandedDay, setExpandedDay] = useState<number | null>(0);
+  const [quoteIdx, setQuoteIdx] = useState(0);
+  const [quoteFade, setQuoteFade] = useState(true);
+  const [generationCount, setGenerationCount] = useState(0);
 
-    useEffect(() => {
-        const stored = localStorage.getItem('gymbruh-plan-count');
-        if (stored) setGenerationCount(parseInt(stored, 10));
-    }, []);
+  useEffect(() => {
+    initUserId().then(() => {
+      const stored = localStorage.getItem(userKey('plan-count'));
+      if (stored) setGenerationCount(parseInt(stored, 10));
+    });
+  }, []);
 
-    useEffect(() => {
-        const fetchProfile = async () => {
-            const isGuest = document.cookie.includes('gymbruh-guest=true');
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const isGuest = document.cookie.includes('gymbruh-guest=true');
 
-            if (isGuest) {
-                const stored = localStorage.getItem('gymbruh-guest-profile');
-                if (stored) setProfile(JSON.parse(stored));
-                else setProfile({ name: 'Guest', goal: 'general_fitness', vibe: 'chill' });
-                return;
-            }
+      if (isGuest) {
+        const stored = localStorage.getItem('gymbruh-guest-profile');
+        if (stored) setProfile(JSON.parse(stored));
+        else setProfile({ name: 'Guest', goal: 'general_fitness', vibe: 'chill' });
+        return;
+      }
 
-            try {
-                const supabase = createClient();
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    const { data } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', user.id)
-                        .single();
-                    if (data) setProfile(data);
-                }
-            } catch (err) {
-                console.error('Profile fetch error:', err);
-            }
-        };
-        fetchProfile();
-    }, []);
-
-    /* ── Quote rotation ── */
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setQuoteFade(false);
-            setTimeout(() => {
-                setQuoteIdx(i => (i + 1) % motivationalQuotes.length);
-                setQuoteFade(true);
-            }, 300);
-        }, 5000);
-        return () => clearInterval(interval);
-    }, []);
-
-    const generatePlan = async (type: 'diet' | 'workout') => {
-        if (!profile) {
-            setError('Please complete onboarding first.');
-            return;
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+          if (data) setProfile(data);
         }
-
-        setLoading(true);
-        setError('');
-
-        try {
-            const res = await fetch('/api/generate-plan', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ profile, planType: type }),
-            });
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                throw new Error(data.error || 'Generation failed');
-            }
-
-            if (type === 'diet') setDietPlan(data);
-            else setWorkoutPlan(data);
-            setExpandedDay(0);
-
-            // Track generation count
-            const newCount = generationCount + 1;
-            setGenerationCount(newCount);
-            localStorage.setItem('gymbruh-plan-count', String(newCount));
-        } catch (err: any) {
-            console.error(err);
-            setError(err.message || 'Failed to generate plan. Please try again.');
-        } finally {
-            setLoading(false);
-        }
+      } catch (err) {
+        console.error('Profile fetch error:', err);
+      }
     };
+    fetchProfile();
+  }, []);
 
-    const loadingMessages = [
-        "Consulting the fitness gods...",
-        "Crunching your macros...",
-        "Designating rest days...",
-        "Synthesizing protein...",
-        "Calibrating weights...",
-        "Analyzing your vibe...",
-        "Building your perfect week...",
-        "Optimizing nutrient timing...",
-    ];
-    const [loadingMsg, setLoadingMsg] = useState(loadingMessages[0]);
-    const [loadingProgress, setLoadingProgress] = useState(0);
+  /* ── Quote rotation ── */
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setQuoteFade(false);
+      setTimeout(() => {
+        setQuoteIdx(i => (i + 1) % motivationalQuotes.length);
+        setQuoteFade(true);
+      }, 300);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
-    useEffect(() => {
-        if (loading) {
-            setLoadingProgress(0);
-            const msgInterval = setInterval(() => {
-                setLoadingMsg(loadingMessages[Math.floor(Math.random() * loadingMessages.length)]);
-            }, 2500);
-            const progressInterval = setInterval(() => {
-                setLoadingProgress(p => Math.min(p + Math.random() * 8, 90));
-            }, 600);
-            return () => { clearInterval(msgInterval); clearInterval(progressInterval); };
-        } else {
-            setLoadingProgress(0);
-        }
-    }, [loading]);
+  const generatePlan = async (type: 'diet' | 'workout') => {
+    if (!profile) {
+      setError('Please complete onboarding first.');
+      return;
+    }
 
-    const currentPlan = activeTab === 'diet' ? dietPlan : workoutPlan;
-    const features = activeTab === 'diet' ? dietFeatures : workoutFeatures;
+    setLoading(true);
+    setError('');
 
-    const getProfileSummary = () => {
-        if (!profile) return null;
-        const parts: string[] = [];
-        if (profile.goal) parts.push(String(profile.goal).replace(/_/g, ' '));
-        if (profile.diet_preference) parts.push(String(profile.diet_preference));
-        if (profile.activity_level) parts.push(`activity ${profile.activity_level}/5`);
-        if (profile.vibe) parts.push(`${profile.vibe} vibe`);
-        return parts;
-    };
+    try {
+      const res = await fetch('/api/generate-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile, planType: type }),
+      });
 
-    return (
-        <div className="planner-page">
-            <div className="page-header">
-                <h1><Icon name="brain" size={24} /> AI Planner</h1>
-                <p className="page-subtitle">Personalized plans built around YOUR life, allergies, and goals.</p>
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Generation failed');
+      }
+
+      if (type === 'diet') setDietPlan(data);
+      else setWorkoutPlan(data);
+      setExpandedDay(0);
+
+      // Track generation count
+      const newCount = generationCount + 1;
+      setGenerationCount(newCount);
+      localStorage.setItem(userKey('plan-count'), String(newCount));
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Failed to generate plan. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadingMessages = [
+    "Consulting the fitness gods...",
+    "Crunching your macros...",
+    "Designating rest days...",
+    "Synthesizing protein...",
+    "Calibrating weights...",
+    "Analyzing your vibe...",
+    "Building your perfect week...",
+    "Optimizing nutrient timing...",
+  ];
+  const [loadingMsg, setLoadingMsg] = useState(loadingMessages[0]);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+
+  useEffect(() => {
+    if (loading) {
+      setLoadingProgress(0);
+      const msgInterval = setInterval(() => {
+        setLoadingMsg(loadingMessages[Math.floor(Math.random() * loadingMessages.length)]);
+      }, 2500);
+      const progressInterval = setInterval(() => {
+        setLoadingProgress(p => Math.min(p + Math.random() * 8, 90));
+      }, 600);
+      return () => { clearInterval(msgInterval); clearInterval(progressInterval); };
+    } else {
+      setLoadingProgress(0);
+    }
+  }, [loading]);
+
+  const currentPlan = activeTab === 'diet' ? dietPlan : workoutPlan;
+  const features = activeTab === 'diet' ? dietFeatures : workoutFeatures;
+
+  const getProfileSummary = () => {
+    if (!profile) return null;
+    const parts: string[] = [];
+    if (profile.goal) parts.push(String(profile.goal).replace(/_/g, ' '));
+    if (profile.diet_preference) parts.push(String(profile.diet_preference));
+    if (profile.activity_level) parts.push(`activity ${profile.activity_level}/5`);
+    if (profile.vibe) parts.push(`${profile.vibe} vibe`);
+    return parts;
+  };
+
+  return (
+    <div className="planner-page">
+      <div className="page-header">
+        <h1><Icon name="brain" size={24} /> AI Planner</h1>
+        <p className="page-subtitle">Personalized plans built around YOUR life, allergies, and goals.</p>
+      </div>
+
+      {/* ── Profile Snapshot ── */}
+      {profile && !currentPlan && !loading && (
+        <div className="glass-card-static profile-snapshot">
+          <div className="profile-snapshot-header">
+            <div className="profile-avatar">
+              <Icon name="runner" size={24} />
             </div>
+            <div>
+              <span className="profile-name">{String(profile.name || 'User')}</span>
+              <span className="profile-hint">AI will personalize for you</span>
+            </div>
+          </div>
+          {getProfileSummary() && (
+            <div className="profile-tags">
+              {getProfileSummary()!.map((tag, i) => (
+                <span key={i} className="profile-tag">{tag}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-            {/* ── Profile Snapshot ── */}
-            {profile && !currentPlan && !loading && (
-                <div className="glass-card-static profile-snapshot">
-                    <div className="profile-snapshot-header">
-                        <div className="profile-avatar">
-                            <Icon name="runner" size={24} />
-                        </div>
-                        <div>
-                            <span className="profile-name">{String(profile.name || 'User')}</span>
-                            <span className="profile-hint">AI will personalize for you</span>
-                        </div>
-                    </div>
-                    {getProfileSummary() && (
-                        <div className="profile-tags">
-                            {getProfileSummary()!.map((tag, i) => (
-                                <span key={i} className="profile-tag">{tag}</span>
-                            ))}
-                        </div>
-                    )}
+      {/* Tab Switcher */}
+      <div className="tab-bar glass-card-static">
+        <button
+          className={`tab-btn ${activeTab === 'diet' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('diet')}
+        >
+          <Icon name="utensils" size={16} /> Diet Plan
+        </button>
+        <button
+          className={`tab-btn ${activeTab === 'workout' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('workout')}
+        >
+          <Icon name="muscle" size={16} /> Workout Plan
+        </button>
+      </div>
+
+      {/* Generate Button */}
+      <button
+        className="glass-btn glass-btn-rainbow glass-btn-lg generate-btn"
+        onClick={() => generatePlan(activeTab)}
+        disabled={loading}
+      >
+        {loading ? (
+          <div className="loading-content">
+            <div className="loading-bar">
+              <div className="loading-fill" style={{ width: `${loadingProgress}%` }} />
+            </div>
+            <span className="loading-msg">{loadingMsg}</span>
+          </div>
+        ) : (
+          <>
+            <Icon name="sparkles" size={16} />
+            {currentPlan ? 'Regenerate' : 'Generate'} {activeTab === 'diet' ? 'Diet' : 'Workout'} Plan
+          </>
+        )}
+      </button>
+
+      {error && (
+        <div className="error-card">
+          <Icon name="warning" size={16} /> {error}
+        </div>
+      )}
+
+      {/* ═══ Empty State: Feature Cards ═══ */}
+      {!currentPlan && !loading && (
+        <>
+          <div className="features-section">
+            <h3 className="section-title">
+              What the AI considers for your {activeTab === 'diet' ? 'diet' : 'workout'}
+            </h3>
+            <div className="features-grid">
+              {features.map((f, i) => (
+                <div key={i} className="glass-card-static feature-card" style={{ animationDelay: `${i * 0.1}s` }}>
+                  <div className="feature-icon"><Icon name={f.icon} size={22} /></div>
+                  <h4>{f.title}</h4>
+                  <p>{f.desc}</p>
                 </div>
-            )}
-
-            {/* Tab Switcher */}
-            <div className="tab-bar glass-card-static">
-                <button
-                    className={`tab-btn ${activeTab === 'diet' ? 'tab-active' : ''}`}
-                    onClick={() => setActiveTab('diet')}
-                >
-                    <Icon name="utensils" size={16} /> Diet Plan
-                </button>
-                <button
-                    className={`tab-btn ${activeTab === 'workout' ? 'tab-active' : ''}`}
-                    onClick={() => setActiveTab('workout')}
-                >
-                    <Icon name="muscle" size={16} /> Workout Plan
-                </button>
+              ))}
             </div>
+          </div>
 
-            {/* Generate Button */}
-            <button
-                className="glass-btn glass-btn-rainbow glass-btn-lg generate-btn"
-                onClick={() => generatePlan(activeTab)}
-                disabled={loading}
-            >
-                {loading ? (
-                    <div className="loading-content">
-                        <div className="loading-bar">
-                            <div className="loading-fill" style={{ width: `${loadingProgress}%` }} />
+          {/* Quote */}
+          <div className="glass-card-static quote-card">
+            <div className="quote-accent" />
+            <p className={`quote-text ${quoteFade ? 'q-in' : 'q-out'}`}>
+              &ldquo;{motivationalQuotes[quoteIdx]}&rdquo;
+            </p>
+          </div>
+
+          {/* Stats */}
+          {generationCount > 0 && (
+            <div className="gen-stats">
+              <Icon name="chart" size={14} />
+              <span>You&apos;ve generated <strong>{generationCount}</strong> plan{generationCount !== 1 ? 's' : ''} so far</span>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ═══ Diet Plan Display ═══ */}
+      {activeTab === 'diet' && dietPlan && (
+        <div className="plan-display">
+          <div className="plan-header glass-card-static">
+            <div className="plan-header-top">
+              <h2>{dietPlan.plan_name}</h2>
+              <div className="badge badge-info">
+                <Icon name="fire" size={14} /> {dietPlan.daily_calories} cal/day
+              </div>
+            </div>
+            <p className="plan-desc">{dietPlan.description}</p>
+          </div>
+
+          <div className="days-list">
+            {dietPlan.days.map((day, i) => (
+              <div key={day.day} className="glass-card-static day-card">
+                <button
+                  className="day-header"
+                  onClick={() => setExpandedDay(expandedDay === i ? null : i)}
+                >
+                  <div className="day-header-left">
+                    <span className="day-number">{i + 1}</span>
+                    <span className="day-name">{day.day}</span>
+                  </div>
+                  <span className={`day-chevron ${expandedDay === i ? 'day-chevron-open' : ''}`}>
+                    <Icon name="trendUp" size={14} />
+                  </span>
+                </button>
+
+                {expandedDay === i && (
+                  <div className="day-content">
+                    {day.meals.map((meal, j) => (
+                      <div key={j} className="meal-card">
+                        <div className="meal-header">
+                          <span className="meal-type">{meal.type}</span>
+                          <span className="meal-cals macro-calories">{meal.calories} cal</span>
                         </div>
-                        <span className="loading-msg">{loadingMsg}</span>
-                    </div>
-                ) : (
-                    <>
-                        <Icon name="sparkles" size={16} />
-                        {currentPlan ? 'Regenerate' : 'Generate'} {activeTab === 'diet' ? 'Diet' : 'Workout'} Plan
-                    </>
+                        <h4 className="meal-name">{meal.name}</h4>
+                        <div className="meal-macros-row">
+                          <span className="macro-pill macro-protein">{meal.protein}g P</span>
+                          <span className="macro-pill macro-carbs">{meal.carbs}g C</span>
+                          <span className="macro-pill macro-fats">{meal.fats}g F</span>
+                        </div>
+                        {meal.ingredients && (
+                          <div className="meal-ingredients">
+                            {meal.ingredients.map((ing, k) => (
+                              <span key={k} className="ingredient-chip">{ing}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
-            </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-            {error && (
-                <div className="error-card">
-                    <Icon name="warning" size={16} /> {error}
-                </div>
-            )}
+      {/* ═══ Workout Plan Display ═══ */}
+      {activeTab === 'workout' && workoutPlan && (
+        <div className="plan-display">
+          <div className="plan-header glass-card-static">
+            <h2>{workoutPlan.plan_name}</h2>
+            <p className="plan-desc">{workoutPlan.description}</p>
+          </div>
 
-            {/* ═══ Empty State: Feature Cards ═══ */}
-            {!currentPlan && !loading && (
-                <>
-                    <div className="features-section">
-                        <h3 className="section-title">
-                            What the AI considers for your {activeTab === 'diet' ? 'diet' : 'workout'}
-                        </h3>
-                        <div className="features-grid">
-                            {features.map((f, i) => (
-                                <div key={i} className="glass-card-static feature-card" style={{ animationDelay: `${i * 0.1}s` }}>
-                                    <div className="feature-icon"><Icon name={f.icon} size={22} /></div>
-                                    <h4>{f.title}</h4>
-                                    <p>{f.desc}</p>
-                                </div>
-                            ))}
+          <div className="days-list">
+            {workoutPlan.days.map((day, i) => (
+              <div key={day.day} className="glass-card-static day-card">
+                <button
+                  className="day-header"
+                  onClick={() => setExpandedDay(expandedDay === i ? null : i)}
+                >
+                  <div className="day-header-left">
+                    <span className="day-number">{i + 1}</span>
+                    <span className="day-name">{day.day}</span>
+                    <span className="day-focus badge badge-info">{day.focus}</span>
+                  </div>
+                  <span className={`day-chevron ${expandedDay === i ? 'day-chevron-open' : ''}`}>
+                    <Icon name="trendUp" size={14} />
+                  </span>
+                </button>
+
+                {expandedDay === i && (
+                  <div className="day-content">
+                    {day.rest_note ? (
+                      <div className="rest-note">
+                        <div className="rest-icon"><Icon name="flexibility" size={32} /></div>
+                        <p className="rest-title">Rest & Recovery</p>
+                        <p className="rest-text">{day.rest_note}</p>
+                      </div>
+                    ) : (
+                      day.exercises.map((ex, j) => (
+                        <div key={j} className="exercise-card">
+                          <div className="exercise-header">
+                            <div className="exercise-left">
+                              <span className="exercise-num">{j + 1}</span>
+                              <span className="exercise-name">{ex.name}</span>
+                            </div>
+                            <span className="exercise-detail">
+                              {ex.duration_min
+                                ? `${ex.duration_min} min`
+                                : `${ex.sets} × ${ex.reps}`}
+                            </span>
+                          </div>
+                          {ex.notes && (
+                            <p className="exercise-notes"><Icon name="lightbulb" size={14} /> {ex.notes}</p>
+                          )}
                         </div>
-                    </div>
-
-                    {/* Quote */}
-                    <div className="glass-card-static quote-card">
-                        <div className="quote-accent" />
-                        <p className={`quote-text ${quoteFade ? 'q-in' : 'q-out'}`}>
-                            &ldquo;{motivationalQuotes[quoteIdx]}&rdquo;
-                        </p>
-                    </div>
-
-                    {/* Stats */}
-                    {generationCount > 0 && (
-                        <div className="gen-stats">
-                            <Icon name="chart" size={14} />
-                            <span>You&apos;ve generated <strong>{generationCount}</strong> plan{generationCount !== 1 ? 's' : ''} so far</span>
-                        </div>
+                      ))
                     )}
-                </>
-            )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-            {/* ═══ Diet Plan Display ═══ */}
-            {activeTab === 'diet' && dietPlan && (
-                <div className="plan-display">
-                    <div className="plan-header glass-card-static">
-                        <div className="plan-header-top">
-                            <h2>{dietPlan.plan_name}</h2>
-                            <div className="badge badge-info">
-                                <Icon name="fire" size={14} /> {dietPlan.daily_calories} cal/day
-                            </div>
-                        </div>
-                        <p className="plan-desc">{dietPlan.description}</p>
-                    </div>
-
-                    <div className="days-list">
-                        {dietPlan.days.map((day, i) => (
-                            <div key={day.day} className="glass-card-static day-card">
-                                <button
-                                    className="day-header"
-                                    onClick={() => setExpandedDay(expandedDay === i ? null : i)}
-                                >
-                                    <div className="day-header-left">
-                                        <span className="day-number">{i + 1}</span>
-                                        <span className="day-name">{day.day}</span>
-                                    </div>
-                                    <span className={`day-chevron ${expandedDay === i ? 'day-chevron-open' : ''}`}>
-                                        <Icon name="trendUp" size={14} />
-                                    </span>
-                                </button>
-
-                                {expandedDay === i && (
-                                    <div className="day-content">
-                                        {day.meals.map((meal, j) => (
-                                            <div key={j} className="meal-card">
-                                                <div className="meal-header">
-                                                    <span className="meal-type">{meal.type}</span>
-                                                    <span className="meal-cals macro-calories">{meal.calories} cal</span>
-                                                </div>
-                                                <h4 className="meal-name">{meal.name}</h4>
-                                                <div className="meal-macros-row">
-                                                    <span className="macro-pill macro-protein">{meal.protein}g P</span>
-                                                    <span className="macro-pill macro-carbs">{meal.carbs}g C</span>
-                                                    <span className="macro-pill macro-fats">{meal.fats}g F</span>
-                                                </div>
-                                                {meal.ingredients && (
-                                                    <div className="meal-ingredients">
-                                                        {meal.ingredients.map((ing, k) => (
-                                                            <span key={k} className="ingredient-chip">{ing}</span>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* ═══ Workout Plan Display ═══ */}
-            {activeTab === 'workout' && workoutPlan && (
-                <div className="plan-display">
-                    <div className="plan-header glass-card-static">
-                        <h2>{workoutPlan.plan_name}</h2>
-                        <p className="plan-desc">{workoutPlan.description}</p>
-                    </div>
-
-                    <div className="days-list">
-                        {workoutPlan.days.map((day, i) => (
-                            <div key={day.day} className="glass-card-static day-card">
-                                <button
-                                    className="day-header"
-                                    onClick={() => setExpandedDay(expandedDay === i ? null : i)}
-                                >
-                                    <div className="day-header-left">
-                                        <span className="day-number">{i + 1}</span>
-                                        <span className="day-name">{day.day}</span>
-                                        <span className="day-focus badge badge-info">{day.focus}</span>
-                                    </div>
-                                    <span className={`day-chevron ${expandedDay === i ? 'day-chevron-open' : ''}`}>
-                                        <Icon name="trendUp" size={14} />
-                                    </span>
-                                </button>
-
-                                {expandedDay === i && (
-                                    <div className="day-content">
-                                        {day.rest_note ? (
-                                            <div className="rest-note">
-                                                <div className="rest-icon"><Icon name="flexibility" size={32} /></div>
-                                                <p className="rest-title">Rest & Recovery</p>
-                                                <p className="rest-text">{day.rest_note}</p>
-                                            </div>
-                                        ) : (
-                                            day.exercises.map((ex, j) => (
-                                                <div key={j} className="exercise-card">
-                                                    <div className="exercise-header">
-                                                        <div className="exercise-left">
-                                                            <span className="exercise-num">{j + 1}</span>
-                                                            <span className="exercise-name">{ex.name}</span>
-                                                        </div>
-                                                        <span className="exercise-detail">
-                                                            {ex.duration_min
-                                                                ? `${ex.duration_min} min`
-                                                                : `${ex.sets} × ${ex.reps}`}
-                                                        </span>
-                                                    </div>
-                                                    {ex.notes && (
-                                                        <p className="exercise-notes"><Icon name="lightbulb" size={14} /> {ex.notes}</p>
-                                                    )}
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            <style jsx>{`
+      <style jsx>{`
         .planner-page {
           max-width: 700px;
           margin: 0 auto;
@@ -957,6 +960,6 @@ export default function PlannerPage() {
           }
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }

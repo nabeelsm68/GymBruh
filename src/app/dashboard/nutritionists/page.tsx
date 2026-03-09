@@ -213,6 +213,19 @@ export default function NutritionistsPage() {
             const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
 
             const response = await fetch(url);
+
+            // The Overpass API may return XML on errors or rate-limiting
+            if (!response.ok) {
+                console.warn(`Overpass API returned status ${response.status}. Using demo data.`);
+                return;
+            }
+
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                console.warn(`Overpass API returned non-JSON response (${contentType}). Using demo data.`);
+                return;
+            }
+
             const data = await response.json();
 
             if (data.elements && data.elements.length > 0) {

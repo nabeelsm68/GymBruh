@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import Icon from '@/components/ui/Icons';
+import { initUserId, userKey } from '@/lib/user-storage';
 import './dashboard.css';
 
 /* ═══ Types ═══ */
@@ -67,7 +68,7 @@ export default function DashboardPage() {
     const today = new Date();
 
     // 1. Water Intake
-    const waterKey = `gymbruh-water-${todayStr}`;
+    const waterKey = userKey(`water-${todayStr}`);
     const storedWater = localStorage.getItem(waterKey);
     setWaterGlasses(storedWater ? parseInt(storedWater, 10) : 0);
 
@@ -78,7 +79,7 @@ export default function DashboardPage() {
       const d = new Date(now);
       d.setDate(now.getDate() - i);
       const ds = d.toISOString().split('T')[0];
-      const key = `gymbruh-sleep-${ds}`;
+      const key = userKey(`sleep-${ds}`);
       const val = localStorage.getItem(key);
       sleep.push({
         date: ds,
@@ -89,7 +90,7 @@ export default function DashboardPage() {
     setSleepData(sleep);
 
     // 3. Journal Snapshot
-    const journalKey = 'gymbruh-cj-entries';
+    const journalKey = userKey('cj-entries');
     const storedJournal = localStorage.getItem(journalKey);
     if (storedJournal) {
       const entries = JSON.parse(storedJournal) as JournalEntry[];
@@ -118,8 +119,8 @@ export default function DashboardPage() {
       const ds = d.toISOString().split('T')[0];
 
       let level = 0;
-      if (localStorage.getItem(`gymbruh-water-${ds}`)) level++;
-      if (localStorage.getItem(`gymbruh-sleep-${ds}`)) level++;
+      if (localStorage.getItem(userKey(`water-${ds}`))) level++;
+      if (localStorage.getItem(userKey(`sleep-${ds}`))) level++;
 
       activity.push({
         level,
@@ -135,8 +136,8 @@ export default function DashboardPage() {
     if (isGuest) {
       const stored = localStorage.getItem('gymbruh-guest-profile');
       setProfile(stored ? JSON.parse(stored) : { name: 'GymBruh', goal: 'general_fitness', vibe: 'chill' });
-      setFoodLogs([{ calories: 1200 }]); // Demo log
-      setPoints(2450);
+      setFoodLogs([]);
+      setPoints(0);
       setLoading(false);
       return;
     }
@@ -158,10 +159,12 @@ export default function DashboardPage() {
   }, [todayStr]);
 
   useEffect(() => {
-    fetchData();
-    // Refresh every minute to keep it "Live"
-    const interval = setInterval(fetchData, 60000);
-    return () => clearInterval(interval);
+    initUserId().then(() => {
+      fetchData();
+      // Refresh every minute to keep it "Live"
+      const interval = setInterval(fetchData, 60000);
+      return () => clearInterval(interval);
+    });
   }, [fetchData]);
 
   /* ═══ Derived Stats ═══ */

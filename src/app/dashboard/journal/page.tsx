@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Icon } from '@/components/ui/Icons';
+import { initUserId, userKey } from '@/lib/user-storage';
 import './journal.css';
 
 /* ═══ Types ═══ */
@@ -10,7 +11,7 @@ interface Goal { perWeek: number; }
 interface XPData { total: number; level: number; }
 
 /* ═══ Constants ═══ */
-const SK = 'gymbruh-cj-entries', GK = 'gymbruh-cj-goal', XK = 'gymbruh-cj-xp';
+const sk = () => userKey('cj-entries'), gk = () => userKey('cj-goal'), xk = () => userKey('cj-xp');
 const MOODS: { key: MoodKey; icon: string; label: string; color: string }[] = [
   { key: 'happy', icon: 'happy', label: 'Happy', color: '#facc15' },
   { key: 'relaxed', icon: 'calm', label: 'Relaxed', color: '#60a5fa' },
@@ -72,19 +73,21 @@ export default function JournalPage() {
 
   // Load
   useEffect(() => {
-    try { const s = localStorage.getItem(SK); if (s) setEntries(JSON.parse(s)); } catch { }
-    try { const g = localStorage.getItem(GK); if (g) setGoal(JSON.parse(g)); } catch { }
-    try { const x = localStorage.getItem(XK); if (x) setXp(JSON.parse(x)); } catch { }
+    initUserId().then(() => {
+      try { const s = localStorage.getItem(sk()); if (s) setEntries(JSON.parse(s)); } catch { }
+      try { const g = localStorage.getItem(gk()); if (g) setGoal(JSON.parse(g)); } catch { }
+      try { const x = localStorage.getItem(xk()); if (x) setXp(JSON.parse(x)); } catch { }
+    });
   }, []);
 
-  const save = (u: Entry[]) => { setEntries(u); localStorage.setItem(SK, JSON.stringify(u)); };
-  const saveGoal = (g: Goal) => { setGoal(g); localStorage.setItem(GK, JSON.stringify(g)); setEditGoal(false); };
-  const saveXP = (x: XPData) => { setXp(x); localStorage.setItem(XK, JSON.stringify(x)); };
+  const save = (u: Entry[]) => { setEntries(u); localStorage.setItem(sk(), JSON.stringify(u)); };
+  const saveGoal = (g: Goal) => { setGoal(g); localStorage.setItem(gk(), JSON.stringify(g)); setEditGoal(false); };
+  const saveXP = (x: XPData) => { setXp(x); localStorage.setItem(xk(), JSON.stringify(x)); };
 
   const addXP = useCallback((pts: number) => {
     setXp(prev => {
       const t = prev.total + pts; const nl = getLevel(t); const x = { total: t, level: nl };
-      localStorage.setItem(XK, JSON.stringify(x));
+      localStorage.setItem(xk(), JSON.stringify(x));
       if (nl > prev.level) setLevelUp(LEVELS[nl].name); return x;
     });
   }, []);

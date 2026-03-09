@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import Icon from '@/components/ui/Icons';
+import { initUserId, userKey } from '@/lib/user-storage';
 import './sleep.css';
 
 /* ── Helpers ── */
@@ -23,8 +24,8 @@ function hoursToHM(h: number) {
   return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
 }
 
-const STORAGE_PREFIX = 'gymbruh-sleep-';
-const QUALITY_PREFIX = 'gymbruh-sleepq-';
+const storagePrefix = () => userKey('sleep-');
+const qualityPrefix = () => userKey('sleepq-');
 
 /* ── Sleep Tips ── */
 const sleepTips = [
@@ -57,22 +58,28 @@ export default function SleepPage() {
   const [tipFade, setTipFade] = useState(true);
 
   /* ── Load entries + goal ── */
+  const [ready, setReady] = useState(false);
   useEffect(() => {
-    const loaded: SleepEntry[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(STORAGE_PREFIX)) {
-        const date = key.replace(STORAGE_PREFIX, '');
-        const val = parseFloat(localStorage.getItem(key) || '0');
-        const quality = parseInt(localStorage.getItem(QUALITY_PREFIX + date) || '0', 10) || undefined;
-        if (val > 0) loaded.push({ date, hours: val, quality });
+    initUserId().then(() => {
+      const loaded: SleepEntry[] = [];
+      const sp = storagePrefix();
+      const qp = qualityPrefix();
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(sp)) {
+          const date = key.replace(sp, '');
+          const val = parseFloat(localStorage.getItem(key) || '0');
+          const quality = parseInt(localStorage.getItem(qp + date) || '0', 10) || undefined;
+          if (val > 0) loaded.push({ date, hours: val, quality });
+        }
       }
-    }
-    loaded.sort((a, b) => a.date.localeCompare(b.date));
-    setEntries(loaded);
+      loaded.sort((a, b) => a.date.localeCompare(b.date));
+      setEntries(loaded);
 
-    const savedGoal = localStorage.getItem('gymbruh-sleep-goal');
-    if (savedGoal) setGoalHours(parseFloat(savedGoal));
+      const savedGoal = localStorage.getItem(userKey('sleep-goal'));
+      if (savedGoal) setGoalHours(parseFloat(savedGoal));
+      setReady(true);
+    });
   }, []);
 
   /* ── Rotating tips ── */
@@ -94,8 +101,8 @@ export default function SleepPage() {
     const total = h + m / 60;
     if (total <= 0 || total > 24) return;
 
-    localStorage.setItem(STORAGE_PREFIX + logDate, String(total));
-    localStorage.setItem(QUALITY_PREFIX + logDate, String(logQuality));
+    localStorage.setItem(storagePrefix() + logDate, String(total));
+    localStorage.setItem(qualityPrefix() + logDate, String(logQuality));
 
     setEntries((prev) => {
       const filtered = prev.filter((e) => e.date !== logDate);
@@ -107,14 +114,14 @@ export default function SleepPage() {
 
   /* ── Delete entry ── */
   const deleteEntry = (date: string) => {
-    localStorage.removeItem(STORAGE_PREFIX + date);
-    localStorage.removeItem(QUALITY_PREFIX + date);
+    localStorage.removeItem(storagePrefix() + date);
+    localStorage.removeItem(qualityPrefix() + date);
     setEntries((prev) => prev.filter((e) => e.date !== date));
   };
 
   const saveGoal = (val: number) => {
     setGoalHours(val);
-    localStorage.setItem('gymbruh-sleep-goal', String(val));
+    localStorage.setItem(userKey('sleep-goal'), String(val));
     setEditingGoal(false);
   };
 

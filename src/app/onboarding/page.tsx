@@ -502,7 +502,7 @@ export default function OnboardingPage() {
         }
 
         .step-subtitle {
-          color: var(--text-secondary);
+          color: rgba(255, 255, 255, 0.75);
           font-size: 1rem;
         }
 
@@ -523,7 +523,7 @@ export default function OnboardingPage() {
         }
 
         .welcome-step p {
-          color: var(--text-secondary);
+          color: rgba(255, 255, 255, 0.75);
           line-height: 1.7;
           max-width: 500px;
           margin: 0 auto;
@@ -579,11 +579,12 @@ export default function OnboardingPage() {
         .option-label {
           font-weight: 700;
           font-size: 0.95rem;
+          color: #ffffff;
         }
 
         .option-desc {
           font-size: 0.8rem;
-          color: var(--text-muted);
+          color: rgba(255, 255, 255, 0.7);
         }
 
         .activity-grid {
@@ -614,11 +615,12 @@ export default function OnboardingPage() {
           font-weight: 700;
           display: block;
           font-size: 0.95rem;
+          color: #ffffff;
         }
 
         .activity-desc {
           font-size: 0.8rem;
-          color: var(--text-muted);
+          color: rgba(255, 255, 255, 0.7);
           display: block;
         }
 
@@ -645,6 +647,7 @@ export default function OnboardingPage() {
         .diet-label {
           font-weight: 600;
           font-size: 0.95rem;
+          color: #ffffff;
         }
 
         .health-step {
@@ -781,11 +784,12 @@ export default function OnboardingPage() {
         .vibe-label {
           font-weight: 700;
           font-size: 1rem;
+          color: #ffffff;
         }
 
         .vibe-desc {
           font-size: 0.8rem;
-          color: var(--text-muted);
+          color: rgba(255, 255, 255, 0.7);
           line-height: 1.4;
         }
 
@@ -793,6 +797,166 @@ export default function OnboardingPage() {
           display: flex;
           gap: 12px;
           padding-bottom: 20px;
+        }
+
+        /* ── Neon Glow Icons ── */
+        
+        /* Step header title icon */
+        .step-title :global(.gb-icon) {
+          color: #FBFF00;
+          filter: drop-shadow(0 0 6px rgba(251, 255, 0, 0.6)) drop-shadow(0 0 14px rgba(251, 255, 0, 0.3));
+          animation: iconGlow 2.5s ease-in-out infinite;
+        }
+
+        /* Welcome step big icon */
+        .welcome-step :global(.gb-icon) {
+          color: #FBFF00;
+          filter: drop-shadow(0 0 10px rgba(251, 255, 0, 0.7)) drop-shadow(0 0 25px rgba(251, 255, 0, 0.35));
+          animation: iconFloat 3s ease-in-out infinite, iconGlow 2.5s ease-in-out infinite;
+        }
+
+        /* Option card icons (goals) */
+        .option-icon :global(.gb-icon) {
+          color: #FBFF00;
+          filter: drop-shadow(0 0 6px rgba(251, 255, 0, 0.5)) drop-shadow(0 0 12px rgba(251, 255, 0, 0.25));
+          animation: iconGlow 3s ease-in-out infinite;
+          transition: all 0.3s ease;
+        }
+
+        .option-card:hover .option-icon :global(.gb-icon) {
+          filter: drop-shadow(0 0 10px rgba(251, 255, 0, 0.8)) drop-shadow(0 0 20px rgba(251, 255, 0, 0.4));
+          transform: scale(1.15);
+        }
+
+        .option-selected .option-icon :global(.gb-icon) {
+          filter: drop-shadow(0 0 12px rgba(251, 255, 0, 0.9)) drop-shadow(0 0 24px rgba(251, 255, 0, 0.5));
+          color: #FBFF00;
+        }
+
+        /* Activity card icons */
+        .activity-icon :global(.gb-icon) {
+          color: #FBFF00;
+          filter: drop-shadow(0 0 5px rgba(251, 255, 0, 0.5)) drop-shadow(0 0 10px rgba(251, 255, 0, 0.25));
+          animation: iconGlow 3s ease-in-out infinite;
+          transition: all 0.3s ease;
+        }
+
+        .activity-card:hover .activity-icon :global(.gb-icon) {
+          filter: drop-shadow(0 0 10px rgba(251, 255, 0, 0.8)) drop-shadow(0 0 18px rgba(251, 255, 0, 0.4));
+          transform: scale(1.15);
+        }
+
+        .activity-card.option-selected .activity-icon :global(.gb-icon) {
+          filter: drop-shadow(0 0 12px rgba(251, 255, 0, 0.9)) drop-shadow(0 0 24px rgba(251, 255, 0, 0.5));
+        }
+
+        /* Diet card icons */
+        .diet-label :global(.gb-icon) {
+          color: #FBFF00;
+          filter: drop-shadow(0 0 5px rgba(251, 255, 0, 0.5)) drop-shadow(0 0 10px rgba(251, 255, 0, 0.25));
+          animation: iconGlow 3s ease-in-out infinite;
+          transition: all 0.3s ease;
+        }
+
+        .diet-card:hover .diet-label :global(.gb-icon) {
+          filter: drop-shadow(0 0 10px rgba(251, 255, 0, 0.8)) drop-shadow(0 0 18px rgba(251, 255, 0, 0.4));
+          transform: scale(1.15);
+        }
+
+        .diet-card.option-selected .diet-label :global(.gb-icon) {
+          filter: drop-shadow(0 0 12px rgba(251, 255, 0, 0.9)) drop-shadow(0 0 24px rgba(251, 255, 0, 0.5));
+        }
+
+        /* Vibe card icons */
+        .vibe-icon :global(.gb-icon) {
+          color: #FBFF00;
+          filter: drop-shadow(0 0 6px rgba(251, 255, 0, 0.5)) drop-shadow(0 0 14px rgba(251, 255, 0, 0.25));
+          animation: iconGlow 3s ease-in-out infinite, iconFloat 4s ease-in-out infinite;
+          transition: all 0.3s ease;
+        }
+
+        .vibe-card:hover .vibe-icon :global(.gb-icon) {
+          filter: drop-shadow(0 0 12px rgba(251, 255, 0, 0.8)) drop-shadow(0 0 22px rgba(251, 255, 0, 0.4));
+          transform: scale(1.2);
+        }
+
+        .vibe-card.option-selected .vibe-icon :global(.gb-icon) {
+          filter: drop-shadow(0 0 14px rgba(251, 255, 0, 0.9)) drop-shadow(0 0 28px rgba(251, 255, 0, 0.5));
+        }
+
+        /* Form label icons (health, lifestyle sections) */
+        .form-label :global(.gb-icon) {
+          color: #FBFF00;
+          filter: drop-shadow(0 0 4px rgba(251, 255, 0, 0.5));
+        }
+
+        /* Allergy chip icons */
+        .allergy-chip :global(.gb-icon) {
+          color: #FBFF00;
+          filter: drop-shadow(0 0 4px rgba(251, 255, 0, 0.4));
+          transition: all 0.3s ease;
+        }
+
+        .allergy-selected :global(.gb-icon) {
+          color: var(--color-danger) !important;
+          filter: drop-shadow(0 0 6px rgba(248, 113, 113, 0.6)) !important;
+        }
+
+        /* Stress/water chip icons */
+        .stress-chip :global(.gb-icon) {
+          color: #FBFF00;
+          filter: drop-shadow(0 0 4px rgba(251, 255, 0, 0.4));
+          transition: all 0.3s ease;
+        }
+
+        .stress-selected :global(.gb-icon) {
+          filter: drop-shadow(0 0 8px rgba(251, 255, 0, 0.7));
+        }
+
+        /* Sleep section icons */
+        .sleep-verdict :global(.gb-icon) {
+          color: #FBFF00;
+          filter: drop-shadow(0 0 5px rgba(251, 255, 0, 0.5));
+        }
+
+        /* Progress text icon */
+        .progress-text :global(.gb-icon) {
+          color: #FBFF00;
+        }
+
+        /* Privacy lock icon in welcome */
+        .welcome-step p :global(.gb-icon) {
+          color: var(--color-success);
+          filter: drop-shadow(0 0 5px rgba(74, 222, 128, 0.5));
+        }
+
+        /* Nav button icons */
+        .glass-btn :global(.gb-icon) {
+          filter: drop-shadow(0 0 4px rgba(251, 255, 0, 0.3));
+          transition: filter 0.3s ease;
+        }
+
+        .glass-btn:hover :global(.gb-icon) {
+          filter: drop-shadow(0 0 8px rgba(251, 255, 0, 0.6));
+        }
+
+        /* ── Icon Animations ── */
+        @keyframes iconGlow {
+          0%, 100% {
+            filter: drop-shadow(0 0 6px rgba(251, 255, 0, 0.5)) drop-shadow(0 0 12px rgba(251, 255, 0, 0.25));
+          }
+          50% {
+            filter: drop-shadow(0 0 10px rgba(251, 255, 0, 0.8)) drop-shadow(0 0 20px rgba(251, 255, 0, 0.4));
+          }
+        }
+
+        @keyframes iconFloat {
+          0%, 100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-4px);
+          }
         }
 
         @media (max-width: 500px) {

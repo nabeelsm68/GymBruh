@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Icon } from '@/components/ui/Icons';
+import { initUserId, userKey } from '@/lib/user-storage';
 
 interface ScanResult {
   food_name: string;
@@ -55,11 +56,15 @@ export default function ScannerPage() {
   const [dragOver, setDragOver] = useState(false);
 
   /* ── Load scan history ── */
+  const [ready, setReady] = useState(false);
   useEffect(() => {
-    const stored = localStorage.getItem('gymbruh-scan-history');
-    if (stored) {
-      try { setScanHistory(JSON.parse(stored)); } catch { /* ignore */ }
-    }
+    initUserId().then(() => {
+      const stored = localStorage.getItem(userKey('scan-history'));
+      if (stored) {
+        try { setScanHistory(JSON.parse(stored)); } catch { /* ignore */ }
+      }
+      setReady(true);
+    });
   }, []);
 
   /* ── Rotating tips ── */
@@ -152,7 +157,7 @@ export default function ScannerPage() {
       };
       const updated = [historyItem, ...scanHistory].slice(0, 10);
       setScanHistory(updated);
-      localStorage.setItem('gymbruh-scan-history', JSON.stringify(updated));
+      localStorage.setItem(userKey('scan-history'), JSON.stringify(updated));
     } catch (err: any) {
       setError(err.message || 'Failed to scan food. Please try again.');
     } finally {
@@ -179,7 +184,7 @@ export default function ScannerPage() {
       if (error) console.error('Supabase save error:', error);
     }
 
-    const todayKey = `gymbruh-meals-${new Date().toISOString().split('T')[0]}`;
+    const todayKey = userKey(`meals-${new Date().toISOString().split('T')[0]}`);
     const existing = localStorage.getItem(todayKey);
     let meals = { breakfast: [] as any[], lunch: [] as any[], dinner: [] as any[] };
     if (existing) {
