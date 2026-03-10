@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { resetUserIdCache } from '@/lib/user-storage';
 
 export default function SignupPage() {
     const [email, setEmail] = useState('');
@@ -13,6 +14,17 @@ export default function SignupPage() {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const router = useRouter();
+
+    // Sign out any existing session so the signup form is always shown fresh
+    useEffect(() => {
+        const clearSession = async () => {
+            document.cookie = 'gymbruh-guest=; path=/; max-age=0';
+            resetUserIdCache();
+            const supabase = createClient();
+            await supabase.auth.signOut();
+        };
+        clearSession();
+    }, []);
 
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();

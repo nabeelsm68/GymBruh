@@ -134,7 +134,7 @@ export default function DashboardPage() {
     setPlantGrowth(Math.min((totalActPoints / 56) * 100, 100)); // Sample logic
 
     if (isGuest) {
-      const stored = localStorage.getItem('gymbruh-guest-profile');
+      const stored = localStorage.getItem(userKey('guest-profile'));
       setProfile(stored ? JSON.parse(stored) : { name: 'GymBruh', goal: 'general_fitness', vibe: 'chill' });
       setFoodLogs([]);
       setPoints(0);

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { resetUserIdCache, userKey } from '@/lib/user-storage';
 
 /* ── Clean SVG line icons ── */
 const icons: Record<string, React.ReactNode> = {
@@ -91,7 +92,8 @@ export default function Sidebar() {
   const handleSignOut = async () => {
     setSigningOut(true);
     document.cookie = 'gymbruh-guest=; path=/; max-age=0';
-    localStorage.removeItem('gymbruh-guest-profile');
+    localStorage.removeItem(userKey('guest-profile'));
+    resetUserIdCache();
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/login');

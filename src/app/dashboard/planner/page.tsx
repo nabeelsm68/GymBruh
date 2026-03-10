@@ -95,7 +95,7 @@ export default function PlannerPage() {
       const isGuest = document.cookie.includes('gymbruh-guest=true');
 
       if (isGuest) {
-        const stored = localStorage.getItem('gymbruh-guest-profile');
+        const stored = localStorage.getItem(userKey('guest-profile'));
         if (stored) setProfile(JSON.parse(stored));
         else setProfile({ name: 'Guest', goal: 'general_fitness', vibe: 'chill' });
         return;

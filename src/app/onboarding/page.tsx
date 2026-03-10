@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icons';
+import { initUserId, userKey } from '@/lib/user-storage';
 
 const stepIcons = ['wave', 'clipboard', 'target', 'runner', 'utensils', 'stethoscope', 'moon', 'masks'] as const;
 
@@ -139,8 +140,9 @@ export default function OnboardingPage() {
     const isGuest = document.cookie.includes('gymbruh-guest=true');
 
     if (isGuest) {
-      // Save to localStorage for guest mode
-      localStorage.setItem('gymbruh-guest-profile', JSON.stringify(profileData));
+      // Save to localStorage for guest mode (scoped per user)
+      await initUserId();
+      localStorage.setItem(userKey('guest-profile'), JSON.stringify(profileData));
       router.push('/dashboard');
       return;
     }

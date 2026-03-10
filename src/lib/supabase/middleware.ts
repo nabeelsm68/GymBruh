@@ -45,17 +45,5 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(url);
     }
 
-    // Redirect logged-in users away from auth pages
-    const authRoutes = ['/login', '/signup'];
-    const isAuthRoute = authRoutes.some((route) =>
-        request.nextUrl.pathname.startsWith(route)
-    );
-
-    if (isAuthRoute && user) {
-        const url = request.nextUrl.clone();
-        url.pathname = '/dashboard';
-        return NextResponse.redirect(url);
-    }
-
     return supabaseResponse;
 }

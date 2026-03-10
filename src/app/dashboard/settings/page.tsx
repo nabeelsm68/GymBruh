@@ -57,7 +57,7 @@ export default function SettingsPage() {
             // Load profile
             const isGuest = document.cookie.includes('gymbruh-guest=true');
             if (isGuest) {
-                const stored = localStorage.getItem('gymbruh-guest-profile');
+                const stored = localStorage.getItem(userKey('guest-profile'));
                 if (stored) {
                     try {
                         const p = JSON.parse(stored);
