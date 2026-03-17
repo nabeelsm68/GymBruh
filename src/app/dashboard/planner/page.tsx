@@ -48,6 +48,13 @@ interface WorkoutPlan {
   days: WorkoutDay[];
 }
 
+interface SavedPlan {
+  id: string;
+  type: string;
+  content: DietPlan | WorkoutPlan;
+  created_at: string;
+}
+
 /* ── Feature cards for empty state ── */
 const dietFeatures = [
   { icon: 'target' as const, title: 'Calorie-Optimized', desc: 'Matched to your exact goals and body stats' },
@@ -83,11 +90,42 @@ export default function PlannerPage() {
   const [quoteFade, setQuoteFade] = useState(true);
   const [generationCount, setGenerationCount] = useState(0);
 
+  // Saved plans state
+  const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
+  const [loadingPlans, setLoadingPlans] = useState(true);
+  const [showSavedPlans, setShowSavedPlans] = useState(false);
+  const [viewingSavedPlan, setViewingSavedPlan] = useState<SavedPlan | null>(null);
+  const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
+
   useEffect(() => {
     initUserId().then(() => {
       const stored = localStorage.getItem(userKey('plan-count'));
       if (stored) setGenerationCount(parseInt(stored, 10));
     });
+  }, []);
+
+  // Fetch saved plans from DB
+  useEffect(() => {
+    const fetchSavedPlans = async () => {
+      const isGuest = document.cookie.includes('gymbruh-guest=true');
+      if (isGuest) {
+        setLoadingPlans(false);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/plans');
+        if (res.ok) {
+          const data = await res.json();
+          setSavedPlans(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch saved plans:', err);
+      } finally {
+        setLoadingPlans(false);
+      }
+    };
+    fetchSavedPlans();
   }, []);
 
   useEffect(() => {
@@ -139,6 +177,7 @@ export default function PlannerPage() {
 
     setLoading(true);
     setError('');
+    setViewingSavedPlan(null);
 
     try {
       const res = await fetch('/api/generate-plan', {
@@ -161,12 +200,61 @@ export default function PlannerPage() {
       const newCount = generationCount + 1;
       setGenerationCount(newCount);
       localStorage.setItem(userKey('plan-count'), String(newCount));
+
+      // Refresh saved plans list (plan was auto-saved by API)
+      const isGuest = document.cookie.includes('gymbruh-guest=true');
+      if (!isGuest) {
+        try {
+          const plansRes = await fetch('/api/plans');
+          if (plansRes.ok) {
+            const plans = await plansRes.json();
+            setSavedPlans(plans);
+          }
+        } catch {
+          // non-critical
+        }
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Failed to generate plan. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const deletePlan = async (planId: string) => {
+    setDeletingPlanId(planId);
+    try {
+      const res = await fetch('/api/plans', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: planId }),
+      });
+
+      if (res.ok) {
+        setSavedPlans(prev => prev.filter(p => p.id !== planId));
+        if (viewingSavedPlan?.id === planId) {
+          setViewingSavedPlan(null);
+        }
+      }
+    } catch (err) {
+      console.error('Delete failed:', err);
+    } finally {
+      setDeletingPlanId(null);
+    }
+  };
+
+  const viewSavedPlan = (plan: SavedPlan) => {
+    setViewingSavedPlan(plan);
+    setShowSavedPlans(false);
+    if (plan.type === 'diet') {
+      setDietPlan(plan.content as DietPlan);
+      setActiveTab('diet');
+    } else {
+      setWorkoutPlan(plan.content as WorkoutPlan);
+      setActiveTab('workout');
+    }
+    setExpandedDay(0);
   };
 
   const loadingMessages = [
@@ -210,6 +298,10 @@ export default function PlannerPage() {
     return parts;
   };
 
+  const savedDietPlans = savedPlans.filter(p => p.type === 'diet');
+  const savedWorkoutPlans = savedPlans.filter(p => p.type === 'workout');
+  const filteredSavedPlans = activeTab === 'diet' ? savedDietPlans : savedWorkoutPlans;
+
   return (
     <div className="planner-page">
       <div className="page-header">
@@ -243,17 +335,73 @@ export default function PlannerPage() {
       <div className="tab-bar glass-card-static">
         <button
           className={`tab-btn ${activeTab === 'diet' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('diet')}
+          onClick={() => { setActiveTab('diet'); setViewingSavedPlan(null); }}
         >
           <Icon name="utensils" size={16} /> Diet Plan
+          {savedDietPlans.length > 0 && <span className="tab-count">{savedDietPlans.length}</span>}
         </button>
         <button
           className={`tab-btn ${activeTab === 'workout' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('workout')}
+          onClick={() => { setActiveTab('workout'); setViewingSavedPlan(null); }}
         >
           <Icon name="muscle" size={16} /> Workout Plan
+          {savedWorkoutPlans.length > 0 && <span className="tab-count">{savedWorkoutPlans.length}</span>}
         </button>
       </div>
+
+      {/* ── Saved Plans Section ── */}
+      {!loadingPlans && savedPlans.length > 0 && (
+        <div className="glass-card-static saved-plans-section">
+          <button
+            className="saved-plans-toggle"
+            onClick={() => setShowSavedPlans(!showSavedPlans)}
+          >
+            <div className="saved-plans-toggle-left">
+              <Icon name="star" size={16} />
+              <span>My Saved Plans</span>
+              <span className="saved-count">{filteredSavedPlans.length}</span>
+            </div>
+            <span className={`toggle-chevron ${showSavedPlans ? 'toggle-open' : ''}`}>▾</span>
+          </button>
+
+          {showSavedPlans && (
+            <div className="saved-plans-list">
+              {filteredSavedPlans.length === 0 ? (
+                <p className="empty-saved">No {activeTab} plans saved yet</p>
+              ) : (
+                filteredSavedPlans.map((plan) => (
+                  <div
+                    key={plan.id}
+                    className={`saved-plan-card ${viewingSavedPlan?.id === plan.id ? 'saved-plan-active' : ''}`}
+                  >
+                    <button className="saved-plan-btn" onClick={() => viewSavedPlan(plan)}>
+                      <div className="saved-plan-info">
+                        <span className="saved-plan-name">
+                          {(plan.content as any).plan_name || `${plan.type} plan`}
+                        </span>
+                        <span className="saved-plan-date">
+                          {new Date(plan.created_at).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                      <span className="saved-plan-type-badge">{plan.type}</span>
+                    </button>
+                    <button
+                      className="delete-plan-btn"
+                      onClick={(e) => { e.stopPropagation(); deletePlan(plan.id); }}
+                      disabled={deletingPlanId === plan.id}
+                    >
+                      {deletingPlanId === plan.id ? '...' : '✕'}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Generate Button */}
       <button
@@ -329,6 +477,11 @@ export default function PlannerPage() {
               </div>
             </div>
             <p className="plan-desc">{dietPlan.description}</p>
+            {viewingSavedPlan && (
+              <div className="saved-badge">
+                <Icon name="checkCircle" size={14} /> Saved to your account
+              </div>
+            )}
           </div>
 
           <div className="days-list">
@@ -384,6 +537,11 @@ export default function PlannerPage() {
           <div className="plan-header glass-card-static">
             <h2>{workoutPlan.plan_name}</h2>
             <p className="plan-desc">{workoutPlan.description}</p>
+            {viewingSavedPlan && (
+              <div className="saved-badge">
+                <Icon name="checkCircle" size={14} /> Saved to your account
+              </div>
+            )}
           </div>
 
           <div className="days-list">
@@ -549,6 +707,177 @@ export default function PlannerPage() {
           color: var(--text-primary);
           background: var(--glass-bg-active);
           box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .tab-count {
+          background: rgba(251, 255, 0, 0.15);
+          color: #FBFF00;
+          font-size: 0.7rem;
+          font-weight: 800;
+          padding: 2px 7px;
+          border-radius: 10px;
+          min-width: 18px;
+          text-align: center;
+        }
+
+        /* ── Saved Plans ── */
+        .saved-plans-section {
+          padding: 0;
+          overflow: hidden;
+        }
+
+        .saved-plans-toggle {
+          width: 100%;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 14px 20px;
+          background: transparent;
+          border: none;
+          color: var(--text-primary);
+          font-family: var(--font-family);
+          font-size: 0.9rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s ease;
+        }
+
+        .saved-plans-toggle:hover {
+          background: var(--glass-bg);
+        }
+
+        .saved-plans-toggle-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .saved-count {
+          background: rgba(251, 255, 0, 0.12);
+          color: #FBFF00;
+          font-size: 0.7rem;
+          font-weight: 800;
+          padding: 2px 8px;
+          border-radius: 10px;
+        }
+
+        .toggle-chevron {
+          transition: transform 0.3s ease;
+          color: var(--text-muted);
+        }
+
+        .toggle-open {
+          transform: rotate(180deg);
+        }
+
+        .saved-plans-list {
+          padding: 0 12px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .empty-saved {
+          text-align: center;
+          color: var(--text-muted);
+          font-size: 0.85rem;
+          padding: 12px;
+        }
+
+        .saved-plan-card {
+          display: flex;
+          align-items: stretch;
+          border-radius: var(--radius-sm);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          overflow: hidden;
+          transition: all 0.2s ease;
+        }
+
+        .saved-plan-card:hover {
+          border-color: rgba(251, 255, 0, 0.2);
+        }
+
+        .saved-plan-active {
+          border-color: rgba(251, 255, 0, 0.4) !important;
+          background: rgba(251, 255, 0, 0.04);
+        }
+
+        .saved-plan-btn {
+          flex: 1;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 14px;
+          background: transparent;
+          border: none;
+          color: var(--text-primary);
+          font-family: var(--font-family);
+          cursor: pointer;
+          text-align: left;
+          gap: 10px;
+        }
+
+        .saved-plan-info {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 0;
+        }
+
+        .saved-plan-name {
+          font-weight: 600;
+          font-size: 0.85rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .saved-plan-date {
+          font-size: 0.7rem;
+          color: var(--text-muted);
+        }
+
+        .saved-plan-type-badge {
+          font-size: 0.65rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          padding: 3px 8px;
+          border-radius: 8px;
+          background: rgba(255, 255, 255, 0.06);
+          color: var(--text-muted);
+          white-space: nowrap;
+        }
+
+        .delete-plan-btn {
+          padding: 0 14px;
+          background: transparent;
+          border: none;
+          border-left: 1px solid rgba(255, 255, 255, 0.06);
+          color: var(--text-muted);
+          font-family: var(--font-family);
+          font-size: 0.9rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .delete-plan-btn:hover {
+          background: rgba(255, 107, 107, 0.1);
+          color: var(--color-danger);
+        }
+
+        .saved-badge {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 10px;
+          padding: 6px 12px;
+          background: rgba(74, 222, 128, 0.08);
+          border: 1px solid rgba(74, 222, 128, 0.2);
+          border-radius: var(--radius-sm);
+          font-size: 0.75rem;
+          color: #4ade80;
+          font-weight: 600;
+          width: fit-content;
         }
 
         /* ── Generate ── */

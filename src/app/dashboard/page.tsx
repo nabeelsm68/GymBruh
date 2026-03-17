@@ -59,6 +59,7 @@ export default function DashboardPage() {
   const [points, setPoints] = useState(0);
   const [plantGrowth, setPlantGrowth] = useState(0); // 0-100
   const [activityMap, setActivityMap] = useState<{ level: number, day: number, isToday: boolean, isFuture: boolean }[]>([]); // 4 weeks of activity
+  const [savedPlansCount, setSavedPlansCount] = useState<{ diet: number; workout: number }>({ diet: 0, workout: 0 });
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
@@ -157,6 +158,27 @@ export default function DashboardPage() {
     }
     setLoading(false);
   }, [todayStr]);
+
+  // Fetch saved plans count
+  useEffect(() => {
+    const fetchPlansCount = async () => {
+      const isGuest = document.cookie.includes('gymbruh-guest=true');
+      if (isGuest) return;
+
+      try {
+        const res = await fetch('/api/plans');
+        if (res.ok) {
+          const plans = await res.json();
+          const diet = plans.filter((p: any) => p.type === 'diet').length;
+          const workout = plans.filter((p: any) => p.type === 'workout').length;
+          setSavedPlansCount({ diet, workout });
+        }
+      } catch {
+        // non-critical
+      }
+    };
+    fetchPlansCount();
+  }, []);
 
   useEffect(() => {
     initUserId().then(() => {
@@ -397,6 +419,47 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* 🤖 AI Plans Widget */}
+        <div className="widget-card">
+          <div className="widget-header">
+            <h3 className="widget-title">
+              <span className="icon-wrap"><Icon name="brain" size={14} /></span>
+              AI Plans
+            </h3>
+            <Link href="/dashboard/planner" className="glass-btn glass-btn-sm" style={{ padding: '6px 12px', fontSize: '0.75rem' }}>View All</Link>
+          </div>
+          {(savedPlansCount.diet + savedPlansCount.workout) > 0 ? (
+            <div className="plans-summary">
+              <div className="plan-stat">
+                <div className="plan-stat-icon" style={{ background: 'rgba(251, 255, 0, 0.08)', color: '#FBFF00' }}>
+                  <Icon name="utensils" size={18} />
+                </div>
+                <div>
+                  <span className="plan-stat-val">{savedPlansCount.diet}</span>
+                  <span className="plan-stat-label">Diet Plans</span>
+                </div>
+              </div>
+              <div className="plan-stat">
+                <div className="plan-stat-icon" style={{ background: 'rgba(74, 222, 128, 0.08)', color: '#4ade80' }}>
+                  <Icon name="muscle" size={18} />
+                </div>
+                <div>
+                  <span className="plan-stat-val">{savedPlansCount.workout}</span>
+                  <span className="plan-stat-label">Workout Plans</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="empty-state" style={{ textAlign: 'center', color: 'var(--text-muted)', paddingTop: '20px' }}>
+              <Icon name="sparkles" size={24} />
+              <p style={{ fontSize: '0.8rem', marginTop: '10px' }}>Generate your first AI plan</p>
+              <Link href="/dashboard/planner" className="glass-btn glass-btn-sm" style={{ marginTop: '12px', fontSize: '0.75rem' }}>
+                <Icon name="brain" size={14} /> Go to Planner
+              </Link>
+            </div>
+          )}
+        </div>
+
       </div>
 
       <style jsx>{`
@@ -437,6 +500,47 @@ export default function DashboardPage() {
           border-color: rgba(251, 255, 0, 0.2);
           transform: translateY(-2px);
           color: var(--lime);
+        }
+
+        .plans-summary {
+          display: flex;
+          gap: 12px;
+          padding: 4px 0;
+        }
+
+        .plan-stat {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 14px 16px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 14px;
+        }
+
+        .plan-stat-icon {
+          width: 40px;
+          height: 40px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .plan-stat-val {
+          display: block;
+          font-size: 1.3rem;
+          font-weight: 800;
+          line-height: 1.1;
+        }
+
+        .plan-stat-label {
+          display: block;
+          font-size: 0.7rem;
+          color: var(--text-muted);
+          font-weight: 600;
         }
       `}</style>
     </div>

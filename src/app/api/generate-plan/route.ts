@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createClient } from '@/lib/supabase/server';
 
 // Helper function to try multiple models
 async function generateWithFallback(genAI: GoogleGenerativeAI, prompt: string) {
@@ -16,10 +17,7 @@ async function generateWithFallback(genAI: GoogleGenerativeAI, prompt: string) {
       return response.text();
     } catch (error: any) {
       console.error(`Model ${modelName} failed: `, error.message);
-      // If 404 (Not Found), definitely try next. 
-      // If 429 (Rate Limit), maybe try next in case different models have different quotas?
       lastError = error;
-      // Continue to next model
     }
   }
   throw lastError || new Error('All models failed');
@@ -153,6 +151,39 @@ Goal: ${profile.goal ? profile.goal.replace('_', ' ') : 'General Fitness'}
 
     try {
       const data = JSON.parse(jsonStr);
+
+      // Save plan to database for authenticated users
+      try {
+        const supabase = await createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          await supabase.from('plans').insert({
+            user_id: user.id,
+            type: planType,
+            content: data,
+          });
+
+          // Increment plan generation count on profile
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('plan_generation_count')
+            .eq('id', user.id)
+            .single();
+
+          const currentCount = profileData?.plan_generation_count || 0;
+          await supabase
+            .from('profiles')
+            .update({ plan_generation_count: currentCount + 1 })
+            .eq('id', user.id);
+        }
+      } catch (dbError) {
+        // Don't fail the request if DB save fails (guest mode or DB issue)
+        console.error('Plan save error (non-critical):', dbError);
+      }
+
       return NextResponse.json(data);
     } catch (parseError) {
       console.error('JSON Parse Error:', parseError);
