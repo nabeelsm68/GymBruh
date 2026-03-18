@@ -16,6 +16,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <div className="breathing-bg" />
+        <div className="stars-global" />
+        <div className="stars-global stars-global-2" />
+        <div className="stars-global stars-global-3" />
         {children}
       </body>
     </html>

@@ -31,11 +31,11 @@
   --glass-bg: rgba(255, 255, 255, 0.04);
   --glass-bg-hover: rgba(255, 255, 255, 0.08);
   --glass-bg-active: rgba(255, 255, 255, 0.12);
-  --glass-border: rgba(255, 255, 255, 0.10);
-  --glass-border-hover: rgba(255, 255, 255, 0.18);
+  --glass-border: rgba(251, 255, 0, 0.3);
+  --glass-border-hover: rgba(251, 255, 0, 0.7);
   --glass-blur: 24px;
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  --glass-shadow-lg: 0 16px 64px rgba(0, 0, 0, 0.6);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(251, 255, 0, 0.15);
+  --glass-shadow-lg: 0 16px 64px rgba(0, 0, 0, 0.6), 0 0 40px rgba(251, 255, 0, 0.3);
 
   /* ── Typography ── */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -154,8 +154,8 @@ a:hover {
   background: rgba(20, 20, 20, 0.95);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
 /* ── Buttons ── */
@@ -351,6 +351,257 @@ a:hover {
   min-height: 100vh;
   position: relative;
   z-index: 1;
+}
+
+/* ⭐ GLOBAL STARRY NIGHT — 3-layer system */
+.stars-global {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 0 8px rgba(251, 255, 0, 0.9));
+}
+
+/* Layer 1 — Large bright yellow stars */
+.stars-global::before {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: #FBFF00;
+  border-radius: 50%;
+  box-shadow:
+    45px 80px 1px #FBFF00,
+    130px 40px 1px #FBFF00,
+    250px 150px 1px #FBFF00,
+    400px 60px 1px #FBFF00,
+    550px 200px 1px #FBFF00,
+    700px 90px 1px #FBFF00,
+    850px 250px 1px #FBFF00,
+    1000px 120px 1px #FBFF00,
+    1150px 300px 1px #FBFF00,
+    1300px 70px 1px #FBFF00,
+    80px 350px 1px #FBFF00,
+    230px 420px 1px #FBFF00,
+    380px 330px 1px #FBFF00,
+    530px 460px 1px #FBFF00,
+    680px 370px 1px #FBFF00,
+    830px 500px 1px #FBFF00,
+    980px 410px 1px #FBFF00,
+    1130px 480px 1px #FBFF00,
+    1280px 350px 1px #FBFF00,
+    160px 560px 1px #FBFF00,
+    310px 620px 1px #FBFF00,
+    460px 540px 1px #FBFF00,
+    610px 680px 1px #FBFF00,
+    760px 590px 1px #FBFF00,
+    910px 710px 1px #FBFF00,
+    1060px 620px 1px #FBFF00,
+    1210px 750px 1px #FBFF00,
+    50px 770px 1px #FBFF00,
+    200px 830px 1px #FBFF00,
+    350px 880px 1px #FBFF00,
+    500px 790px 1px #FBFF00,
+    650px 850px 1px #FBFF00,
+    800px 920px 1px #FBFF00,
+    950px 850px 1px #FBFF00,
+    1100px 930px 1px #FBFF00;
+  animation: starTwinkle 4s infinite ease-in-out alternate;
+}
+
+/* Layer 1 after — offset for density */
+.stars-global::after {
+  content: "";
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: #FBFF00;
+  border-radius: 50%;
+  box-shadow:
+    100px 30px 0.5px #FBFF00,
+    280px 100px 0.5px #FBFF00,
+    440px 190px 0.5px #FBFF00,
+    600px 50px 0.5px #FBFF00,
+    780px 160px 0.5px #FBFF00,
+    940px 280px 0.5px #FBFF00,
+    1100px 180px 0.5px #FBFF00,
+    1260px 230px 0.5px #FBFF00,
+    70px 480px 0.5px #FBFF00,
+    220px 540px 0.5px #FBFF00,
+    370px 490px 0.5px #FBFF00,
+    520px 600px 0.5px #FBFF00,
+    670px 520px 0.5px #FBFF00,
+    820px 640px 0.5px #FBFF00,
+    970px 560px 0.5px #FBFF00,
+    1120px 690px 0.5px #FBFF00,
+    1270px 540px 0.5px #FBFF00,
+    140px 700px 0.5px #FBFF00,
+    290px 780px 0.5px #FBFF00,
+    440px 850px 0.5px #FBFF00,
+    590px 730px 0.5px #FBFF00,
+    740px 810px 0.5px #FBFF00,
+    890px 890px 0.5px #FBFF00,
+    1040px 770px 0.5px #FBFF00,
+    1190px 870px 0.5px #FBFF00;
+  animation: starTwinkle 5s infinite ease-in-out alternate-reverse;
+}
+
+/* Layer 2 — Medium stars, offset timing */
+.stars-global-2::before {
+  width: 3.5px;
+  height: 3.5px;
+  box-shadow:
+    190px 110px 0.5px rgba(251, 255, 0, 0.7),
+    340px 270px 0.5px rgba(251, 255, 0, 0.7),
+    490px 140px 0.5px rgba(251, 255, 0, 0.7),
+    640px 300px 0.5px rgba(251, 255, 0, 0.7),
+    790px 180px 0.5px rgba(251, 255, 0, 0.7),
+    940px 340px 0.5px rgba(251, 255, 0, 0.7),
+    1090px 220px 0.5px rgba(251, 255, 0, 0.7),
+    1240px 380px 0.5px rgba(251, 255, 0, 0.7),
+    120px 440px 0.5px rgba(251, 255, 0, 0.7),
+    270px 500px 0.5px rgba(251, 255, 0, 0.7),
+    420px 580px 0.5px rgba(251, 255, 0, 0.7),
+    570px 460px 0.5px rgba(251, 255, 0, 0.7),
+    720px 630px 0.5px rgba(251, 255, 0, 0.7),
+    870px 520px 0.5px rgba(251, 255, 0, 0.7),
+    1020px 670px 0.5px rgba(251, 255, 0, 0.7),
+    1170px 560px 0.5px rgba(251, 255, 0, 0.7),
+    50px 730px 0.5px rgba(251, 255, 0, 0.7),
+    200px 860px 0.5px rgba(251, 255, 0, 0.7),
+    350px 790px 0.5px rgba(251, 255, 0, 0.7),
+    500px 920px 0.5px rgba(251, 255, 0, 0.7);
+  animation: starTwinkle 6s 1s infinite ease-in-out alternate;
+}
+
+.stars-global-2::after {
+  width: 3px;
+  height: 3px;
+  box-shadow:
+    60px 200px 0px rgba(251, 255, 0, 0.5),
+    210px 340px 0px rgba(251, 255, 0, 0.5),
+    360px 180px 0px rgba(251, 255, 0, 0.5),
+    510px 400px 0px rgba(251, 255, 0, 0.5),
+    660px 260px 0px rgba(251, 255, 0, 0.5),
+    810px 440px 0px rgba(251, 255, 0, 0.5),
+    960px 320px 0px rgba(251, 255, 0, 0.5),
+    1110px 460px 0px rgba(251, 255, 0, 0.5),
+    1260px 280px 0px rgba(251, 255, 0, 0.5),
+    130px 590px 0px rgba(251, 255, 0, 0.5),
+    280px 670px 0px rgba(251, 255, 0, 0.5),
+    430px 750px 0px rgba(251, 255, 0, 0.5),
+    580px 650px 0px rgba(251, 255, 0, 0.5),
+    730px 820px 0px rgba(251, 255, 0, 0.5),
+    880px 710px 0px rgba(251, 255, 0, 0.5),
+    1030px 880px 0px rgba(251, 255, 0, 0.5);
+  animation: starTwinkle 7s 2s infinite ease-in-out alternate-reverse;
+}
+
+/* Layer 3 — Tiny soft ambient stars */
+.stars-global-3::before {
+  width: 2.5px;
+  height: 2.5px;
+  box-shadow:
+    30px 160px 1px rgba(251, 255, 0, 0.4),
+    180px 60px 1px rgba(251, 255, 0, 0.4),
+    330px 310px 1px rgba(251, 255, 0, 0.4),
+    480px 220px 1px rgba(251, 255, 0, 0.4),
+    630px 130px 1px rgba(251, 255, 0, 0.4),
+    780px 360px 1px rgba(251, 255, 0, 0.4),
+    930px 200px 1px rgba(251, 255, 0, 0.4),
+    1080px 330px 1px rgba(251, 255, 0, 0.4),
+    1230px 150px 1px rgba(251, 255, 0, 0.4),
+    90px 530px 1px rgba(251, 255, 0, 0.4),
+    240px 610px 1px rgba(251, 255, 0, 0.4),
+    390px 700px 1px rgba(251, 255, 0, 0.4),
+    540px 580px 1px rgba(251, 255, 0, 0.4),
+    690px 750px 1px rgba(251, 255, 0, 0.4),
+    840px 660px 1px rgba(251, 255, 0, 0.4),
+    990px 800px 1px rgba(251, 255, 0, 0.4),
+    1140px 730px 1px rgba(251, 255, 0, 0.4),
+    1290px 680px 1px rgba(251, 255, 0, 0.4);
+  animation: starTwinkle 8s 3s infinite ease-in-out alternate;
+}
+
+.stars-global-3::after {
+  width: 2px;
+  height: 2px;
+  box-shadow:
+    110px 250px 1px rgba(251, 255, 0, 0.3),
+    260px 50px 1px rgba(251, 255, 0, 0.3),
+    410px 380px 1px rgba(251, 255, 0, 0.3),
+    560px 170px 1px rgba(251, 255, 0, 0.3),
+    710px 430px 1px rgba(251, 255, 0, 0.3),
+    860px 280px 1px rgba(251, 255, 0, 0.3),
+    1010px 490px 1px rgba(251, 255, 0, 0.3),
+    1160px 120px 1px rgba(251, 255, 0, 0.3),
+    1310px 400px 1px rgba(251, 255, 0, 0.3),
+    50px 640px 1px rgba(251, 255, 0, 0.3),
+    200px 720px 1px rgba(251, 255, 0, 0.3),
+    350px 560px 1px rgba(251, 255, 0, 0.3),
+    500px 830px 1px rgba(251, 255, 0, 0.3),
+    650px 690px 1px rgba(251, 255, 0, 0.3),
+    800px 780px 1px rgba(251, 255, 0, 0.3),
+    950px 610px 1px rgba(251, 255, 0, 0.3);
+  animation: starTwinkle 9s 4s infinite ease-in-out alternate-reverse;
+}
+
+@keyframes starTwinkle {
+  0% {
+    opacity: 0.1;
+    transform: scale(0.6);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.6);
+  }
+
+  100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+}
+
+/* ✨ Glow Pulse — subtle ambient glow for widgets */
+.widget-card,
+.glass-card-static {
+  animation: subtleGlow 6s infinite ease-in-out;
+}
+
+@keyframes subtleGlow {
+
+  0%,
+  100% {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 15px rgba(251, 255, 0, 0.15);
+  }
+
+  50% {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 30px rgba(251, 255, 0, 0.3);
+  }
+}
+
+/* 🔆 Active glow ring — for featured elements */
+.glow-ring {
+  position: relative;
+}
+
+.glow-ring::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(251, 255, 0, 0.15), transparent, rgba(251, 255, 0, 0.1));
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.glow-ring:hover::after {
+  opacity: 1;
 }
 
 /* ── Scrollbar ── */
