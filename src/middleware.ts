@@ -1,8 +1,7 @@
-/*import { updateSession } from '@/lib/supabase/middleware';
+import { updateSession } from '@/lib/supabase/middleware';
 import { type NextRequest, NextResponse } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-    // Allow guest mode — if guest cookie is set, skip auth checks
     const isGuest = request.cookies.get('gymbruh-guest')?.value === 'true';
 
     const protectedRoutes = ['/dashboard', '/onboarding'];
@@ -23,4 +22,3 @@ export const config = {
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 };
-*/
