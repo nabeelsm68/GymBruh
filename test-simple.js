@@ -2,6 +2,8 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 const path = require('path');
 
+const fs = require('fs');
+
 const envPath = path.resolve('.env.local');
 let apiKey = '';
 try {
