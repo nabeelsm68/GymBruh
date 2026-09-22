@@ -45,3 +45,5 @@ src/
 │   └── ui/
 └── lib/
     └── supabase/
+
+Deployment source: GitHub → Vercel
