@@ -148,10 +148,17 @@ export default function PlannerPage() {
             .select('*')
             .eq('id', user.id)
             .single();
-          if (data) setProfile(data);
+          if (data) {
+             setProfile(data);
+          } else {
+             const stored = localStorage.getItem(userKey('guest-profile'));
+             if (stored) setProfile(JSON.parse(stored));
+          }
         }
       } catch (err) {
         console.error('Profile fetch error:', err);
+        const stored = localStorage.getItem(userKey('guest-profile'));
+        if (stored) setProfile(JSON.parse(stored));
       }
     };
     fetchProfile();

@@ -157,12 +157,22 @@ export default function OnboardingPage() {
         return;
       }
 
-      await supabase.from('profiles').upsert({
+      const { error } = await supabase.from('profiles').upsert({
         id: user.id,
         ...profileData,
       });
+
+      if (error) {
+         console.error('Supabase RLS or DB error:', error);
+      }
+      
+      await initUserId();
+      localStorage.setItem(userKey('guest-profile'), JSON.stringify(profileData));
+
     } catch (err) {
       console.error('Onboarding save error:', err);
+      // Fallback
+      localStorage.setItem(userKey('guest-profile'), JSON.stringify(profileData));
     }
 
     router.push('/dashboard');

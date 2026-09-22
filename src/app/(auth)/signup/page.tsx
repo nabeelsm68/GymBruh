@@ -13,6 +13,7 @@ export default function SignupPage() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [verificationRequired, setVerificationRequired] = useState(false);
     const router = useRouter();
 
     // Sign out any existing session so the signup form is always shown fresh
@@ -62,6 +63,12 @@ export default function SignupPage() {
                 return;
             }
 
+            if (data.user && !data.session) {
+                setVerificationRequired(true);
+                setLoading(false);
+                return;
+            }
+
             setSuccess(true);
             setTimeout(() => router.push('/onboarding'), 1500);
         } catch {
@@ -69,6 +76,29 @@ export default function SignupPage() {
             setLoading(false);
         }
     };
+
+    if (verificationRequired) {
+        return (
+            <div className="auth-container">
+                <div className="glass-card-static auth-card" style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '16px' }}>✉️</div>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '8px' }}>
+                        Check your email
+                    </h2>
+                    <p style={{ color: 'var(--text-secondary)' }}>
+                        We sent a verification link to your email. Please click it to verify your account, then sign in.
+                    </p>
+                    <Link href="/login" className="glass-btn glass-btn-primary" style={{ display: 'inline-block', marginTop: '20px' }}>
+                        Go to Login
+                    </Link>
+                </div>
+                <style jsx>{`
+          .auth-container { width: 100%; max-width: 440px; }
+          .auth-card { padding: 40px 36px; }
+        `}</style>
+            </div>
+        );
+    }
 
     if (success) {
         return (
